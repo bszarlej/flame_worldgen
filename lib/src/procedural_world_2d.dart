@@ -1,48 +1,63 @@
-import 'package:fast_noise/fast_noise.dart';
 import 'package:flame/components.dart';
-import 'package:flame_procedural_generation/src/chunk_manager.dart';
-import 'package:flutter/material.dart';
+
+import 'chunk_manager.dart';
+
+typedef TileFactory =
+    PositionComponent Function(Vector2 position, double noiseValue);
 
 class ProceduralWorld2D extends World {
-  final Noise2 noise;
   final ChunkManager chunkManager;
-  final PositionComponent Function(Vector2 position, double noiseValue)
-  tileMapper;
+  final TileFactory tileFactory;
 
-  ProceduralWorld2D({
-    required this.noise,
-    required this.chunkManager,
-    required this.tileMapper,
-  });
+  final Map<String, PositionComponent> _tiles = {};
+  final Set<String> _visibleTiles = {};
 
-  void updatePlayerPosition(Vector2 position) {
-    chunkManager.update(position);
+  final List<PositionComponent> _objectComponents = [];
+
+  ProceduralWorld2D({required this.chunkManager, required this.tileFactory});
+
+  void updateWorldView(Vector2 centerPosition) {
+    chunkManager.updateVisibleChunks(centerPosition);
+    _updateTiles();
   }
 
-  @override
-  void render(Canvas canvas) {
-    super.render(canvas);
+  void _updateTiles() {
+    _visibleTiles.clear();
 
     for (final chunk in chunkManager.loadedChunks.values) {
       for (int x = 0; x < chunk.tileCount.x; x++) {
         for (int y = 0; y < chunk.tileCount.y; y++) {
-          final globalPosition = chunk.getGlobalTilePosition(x, y);
-          final noiseValue = noise.getNoise2(
-            globalPosition.x,
-            globalPosition.y,
-          );
-          canvas.drawRect(
-            Rect.fromLTWH(globalPosition.x, globalPosition.y, 16, 16),
-            Paint()
-              ..color = Color.fromARGB(
-                255,
-                (noiseValue * 255).toInt().abs(),
-                (noiseValue * 255).toInt().abs(),
-                (noiseValue * 255).toInt().abs(),
-              ),
-          );
+          final tilePos = chunk.getTileWorldPosition(x, y);
+          final key = '${tilePos.x.toInt()},${tilePos.y.toInt()}';
+          _visibleTiles.add(key);
+
+          if (!_tiles.containsKey(key)) {
+            final noiseValue = chunk.getNoiseValue(x, y);
+            final tile = tileFactory(tilePos, noiseValue);
+            _tiles[key] = tile;
+            add(tile);
+          }
         }
       }
     }
+
+    // Remove tiles that are no longer visible
+    final toRemove = _tiles.keys
+        .where((key) => !_visibleTiles.contains(key))
+        .toList();
+    for (final key in toRemove) {
+      final tile = _tiles.remove(key);
+      tile?.removeFromParent();
+    }
+  }
+
+  void addObject(PositionComponent object) {
+    _objectComponents.add(object);
+    add(object); // Also add to component tree
+  }
+
+  void removeObject(PositionComponent object) {
+    _objectComponents.remove(object);
+    object.removeFromParent();
   }
 }

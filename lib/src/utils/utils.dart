@@ -1,23 +1,35 @@
 import 'package:flame/game.dart';
 
-Vector2 chunkToWorldPosition(
-  Vector2 chunkCoords,
-  Vector2 tileCount,
-  Vector2 tileSize,
-) {
+import '../math/vector2i.dart';
+
+Vector2 chunkToWorldPosition(Vector2 chunkCoords, Vector2i chunkWorldSize) {
   return Vector2(
-    chunkCoords.x * tileCount.x * tileSize.x,
-    chunkCoords.y * tileCount.y * tileSize.y,
+    chunkCoords.x * chunkWorldSize.x,
+    chunkCoords.y * chunkWorldSize.y,
   );
 }
 
-Vector2 worldToChunkPosition(
-  Vector2 worldPosition,
-  Vector2 tileCount,
-  Vector2 tileSize,
-) {
+Vector2 worldToChunkPosition(Vector2 worldPosition, Vector2i chunkWorldSize) {
   return Vector2(
-    (worldPosition.x / (tileCount.x * tileSize.x)).floorToDouble(),
-    (worldPosition.y / (tileCount.y * tileSize.y)).floorToDouble(),
+    worldPosition.x / chunkWorldSize.x,
+    worldPosition.y / chunkWorldSize.y,
   );
+}
+
+Vector2 tileToWorldPosition(Vector2 tileCoords, Vector2i tileSize) {
+  return Vector2(tileCoords.x * tileSize.x, tileCoords.y * tileSize.y);
+}
+
+Vector2 worldToTilePosition(Vector2 worldPosition, Vector2i tileSize) {
+  return Vector2(worldPosition.x / tileSize.x, worldPosition.y / tileSize.y);
+}
+
+int packKey(int x, int y) {
+  return (x << 32) | (y & 0xFFFFFFFF);
+}
+
+(int, int) unpackKey(int key) {
+  final x = key >> 32;
+  final y = key & 0xFFFFFFFF;
+  return (x, y >= 0x80000000 ? y - 0x100000000 : y);
 }

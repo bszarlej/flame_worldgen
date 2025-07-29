@@ -9,10 +9,8 @@ class ProceduralWorld2D extends World {
   final ChunkManager chunkManager;
   final TileFactory tileFactory;
 
-  final Map<String, PositionComponent> _tiles = {};
-  final Set<String> _visibleTiles = {};
-
-  final List<PositionComponent> _objectComponents = [];
+  final Map<int, PositionComponent> _tiles = {};
+  final Set<int> _visibleTiles = {};
 
   ProceduralWorld2D({required this.chunkManager, required this.tileFactory});
 
@@ -25,15 +23,16 @@ class ProceduralWorld2D extends World {
     _visibleTiles.clear();
 
     for (final chunk in chunkManager.loadedChunks.values) {
-      for (int x = 0; x < chunk.tileCount.x; x++) {
-        for (int y = 0; y < chunk.tileCount.y; y++) {
+      for (int x = 0; x < chunk.chunkSize.x; x++) {
+        for (int y = 0; y < chunk.chunkSize.y; y++) {
           final tilePos = chunk.getTileWorldPosition(x, y);
-          final key = '${tilePos.x.toInt()},${tilePos.y.toInt()}';
+          final globalCoords = chunk.getGlobalTileCoords(x, y);
+          final key = globalCoords.toPackedKey();
           _visibleTiles.add(key);
 
           if (!_tiles.containsKey(key)) {
-            final noiseValue = chunk.getNoiseValue(x, y);
-            final tile = tileFactory(tilePos, noiseValue);
+            final noiseValue = chunk.getNoise(x, y);
+            final tile = tileFactory(tilePos.toVector2(), noiseValue);
             _tiles[key] = tile;
             add(tile);
           }
@@ -41,7 +40,6 @@ class ProceduralWorld2D extends World {
       }
     }
 
-    // Remove tiles that are no longer visible
     final toRemove = _tiles.keys
         .where((key) => !_visibleTiles.contains(key))
         .toList();
@@ -49,15 +47,5 @@ class ProceduralWorld2D extends World {
       final tile = _tiles.remove(key);
       tile?.removeFromParent();
     }
-  }
-
-  void addObject(PositionComponent object) {
-    _objectComponents.add(object);
-    add(object); // Also add to component tree
-  }
-
-  void removeObject(PositionComponent object) {
-    _objectComponents.remove(object);
-    object.removeFromParent();
   }
 }

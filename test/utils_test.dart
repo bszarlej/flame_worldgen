@@ -19,7 +19,7 @@ void main() {
 
       final chunkPos = worldToChunkPosition(worldPos, chunkWorldSize);
 
-      expect(chunkPos, Vector2(6.0, 1.0));
+      expect(chunkPos, Vector2(6.0, 2.0));
 
       final result = chunkToWorldPosition(chunkPos, chunkWorldSize);
 

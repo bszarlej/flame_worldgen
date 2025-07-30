@@ -28,8 +28,8 @@ int packKey(int x, int y) {
   return (x << 32) | (y & 0xFFFFFFFF);
 }
 
-(int, int) unpackKey(int key) {
+Point unpackKey(int key) {
   final x = key >> 32;
   final y = key & 0xFFFFFFFF;
-  return (x, y >= 0x80000000 ? y - 0x100000000 : y);
+  return (x: x, y: y >= 0x80000000 ? y - 0x100000000 : y);
 }

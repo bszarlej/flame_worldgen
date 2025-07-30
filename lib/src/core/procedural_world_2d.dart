@@ -25,13 +25,13 @@ class ProceduralWorld2D extends World {
     for (final chunk in chunkManager.loadedChunks.values) {
       for (int x = 0; x < chunk.chunkSize.x; x++) {
         for (int y = 0; y < chunk.chunkSize.y; y++) {
-          final tilePos = chunk.getTileWorldPosition(x, y);
           final globalCoords = chunk.getGlobalTileCoords(x, y);
           final key = packKey(globalCoords.x, globalCoords.y);
           _visibleTiles.add(key);
 
           if (!_tiles.containsKey(key)) {
             final noiseValue = chunk.getNoise(x, y);
+            final tilePos = chunk.getTileWorldPosition(x, y);
             final tile = tileFactory(
               Vector2(tilePos.x.toDouble(), tilePos.y.toDouble()),
               noiseValue,

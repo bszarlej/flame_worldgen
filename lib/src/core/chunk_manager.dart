@@ -101,10 +101,10 @@ class ChunkManager {
       if (_cachedChunks.containsKey(key)) {
         chunk = _cachedChunks.remove(key)!;
       } else {
-        final (chunkX, chunkY) = unpackKey(key);
+        final chunkCoords = unpackKey(key);
         chunk = Chunk(
           noise: noise,
-          chunkCoords: (x: chunkX, y: chunkY),
+          chunkCoords: chunkCoords,
           chunkSize: chunkSize,
           tileSize: tileSize,
         );

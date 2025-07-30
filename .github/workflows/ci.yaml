@@ -2,13 +2,10 @@ name: CI
 
 on:
   push:
-    branches:
-      - '*'
     tags-ignore:
       - 'v[0-9]+.[0-9]+.[0-9]+'
   pull_request:
-    branches:
-      - '*'
+    types: [opened, synchronize, reopened]
   workflow_call:
 
 jobs:

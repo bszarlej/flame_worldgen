@@ -8,7 +8,6 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/ci.yaml
-
   publish:
     needs: test
     uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1

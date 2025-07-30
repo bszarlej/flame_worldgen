@@ -1,0 +1,18 @@
+name: Publish to pub.dev
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yaml
+
+  publish:
+    needs: test
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    permissions:
+      id-token: write
+    with:
+      working-directory: .

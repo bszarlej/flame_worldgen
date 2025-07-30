@@ -1,26 +1,26 @@
 import 'package:flame/game.dart';
 
-import '../math/vector2i.dart';
+typedef Point = ({int x, int y});
 
-Vector2 chunkToWorldPosition(Vector2 chunkCoords, Vector2i chunkWorldSize) {
+Vector2 chunkToWorldPosition(Vector2 chunkCoords, Point chunkWorldSize) {
   return Vector2(
     chunkCoords.x * chunkWorldSize.x,
     chunkCoords.y * chunkWorldSize.y,
   );
 }
 
-Vector2 worldToChunkPosition(Vector2 worldPosition, Vector2i chunkWorldSize) {
+Vector2 worldToChunkPosition(Vector2 worldPosition, Point chunkWorldSize) {
   return Vector2(
     worldPosition.x / chunkWorldSize.x,
     worldPosition.y / chunkWorldSize.y,
   );
 }
 
-Vector2 tileToWorldPosition(Vector2 tileCoords, Vector2i tileSize) {
+Vector2 tileToWorldPosition(Vector2 tileCoords, Point tileSize) {
   return Vector2(tileCoords.x * tileSize.x, tileCoords.y * tileSize.y);
 }
 
-Vector2 worldToTilePosition(Vector2 worldPosition, Vector2i tileSize) {
+Vector2 worldToTilePosition(Vector2 worldPosition, Point tileSize) {
   return Vector2(worldPosition.x / tileSize.x, worldPosition.y / tileSize.y);
 }
 

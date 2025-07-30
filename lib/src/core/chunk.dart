@@ -1,12 +1,12 @@
 import 'package:fast_noise/fast_noise.dart';
 
-import '../math/vector2i.dart';
+import '../utils/utils.dart';
 
 class Chunk {
   final Noise2 noise;
-  final Vector2i chunkCoords;
-  final Vector2i chunkSize;
-  final Vector2i tileSize;
+  final Point chunkCoords;
+  final Point chunkSize;
+  final Point tileSize;
 
   late final List<double> _heightMap;
 
@@ -19,16 +19,16 @@ class Chunk {
     _generateHeightMap();
   }
 
-  Vector2i get chunkWorldSize =>
-      Vector2i(chunkSize.x * tileSize.x, chunkSize.y * tileSize.y);
+  Point get chunkWorldSize =>
+      (x: chunkSize.x * tileSize.x, y: chunkSize.y * tileSize.y);
 
   List<double> get heightMap => _heightMap;
 
-  Vector2i getGlobalTileCoords(int x, int y) {
+  Point getGlobalTileCoords(int x, int y) {
     final worldPos = getTileWorldPosition(x, y);
-    return Vector2i(
-      (worldPos.x / tileSize.x).floor(),
-      (worldPos.y / tileSize.y).floor(),
+    return (
+      x: (worldPos.x / tileSize.x).floor(),
+      y: (worldPos.y / tileSize.y).floor(),
     );
   }
 
@@ -37,19 +37,22 @@ class Chunk {
     return _heightMap[index];
   }
 
-  Vector2i getTileWorldPosition(int x, int y) {
-    return Vector2i(
-      (chunkCoords.x * chunkSize.x * tileSize.x + x * tileSize.x),
-      (chunkCoords.y * chunkSize.y * tileSize.y + y * tileSize.y),
+  Point getTileWorldPosition(int x, int y) {
+    return (
+      x: (chunkCoords.x * chunkSize.x * tileSize.x + x * tileSize.x),
+      y: (chunkCoords.y * chunkSize.y * tileSize.y + y * tileSize.y),
     );
   }
 
   void _generateHeightMap() {
     for (int x = 0; x < chunkSize.x; x++) {
       for (int y = 0; y < chunkSize.y; y++) {
-        final globalPos = getTileWorldPosition(x, y).toVector2();
+        final globalPos = getTileWorldPosition(x, y);
         final index = y * chunkSize.x + x;
-        _heightMap[index] = noise.getNoise2(globalPos.x, globalPos.y);
+        _heightMap[index] = noise.getNoise2(
+          globalPos.x.toDouble(),
+          globalPos.y.toDouble(),
+        );
       }
     }
   }

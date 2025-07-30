@@ -3,14 +3,13 @@ import 'dart:collection';
 import 'package:fast_noise/fast_noise.dart';
 import 'package:flame/components.dart';
 
-import '../math/vector2i.dart';
 import '../utils/utils.dart';
 import 'chunk.dart';
 
 class ChunkManager {
   final Noise2 noise;
-  final Vector2i chunkSize;
-  final Vector2i tileSize;
+  final Point chunkSize;
+  final Point tileSize;
   int chunkCacheSize;
   int chunkLoadLimitPerFrame;
   int chunkUnloadLimitPerFrame;
@@ -18,7 +17,7 @@ class ChunkManager {
   final void Function(Chunk chunk)? onChunkUnloaded;
 
   int _loadDistance;
-  late List<Vector2i> _diskOffsets;
+  late List<Point> _diskOffsets;
   final Map<int, Chunk> _loadedChunks = {};
   final Map<int, Chunk> _cachedChunks = {};
   final Queue<int> _chunksToLoad = Queue();
@@ -47,8 +46,8 @@ class ChunkManager {
     _diskOffsets = _generateDiskOffsets(_loadDistance);
   }
 
-  Vector2i get chunkWorldSize =>
-      Vector2i(chunkSize.x * tileSize.x, chunkSize.y * tileSize.y);
+  Point get chunkWorldSize =>
+      (x: chunkSize.x * tileSize.x, y: chunkSize.y * tileSize.y);
   Map<int, Chunk> get loadedChunks => _loadedChunks;
   int get queuedLoads => _chunksToLoad.length;
   int get queuedUnloads => _chunksToUnload.length;
@@ -105,7 +104,7 @@ class ChunkManager {
         final (chunkX, chunkY) = unpackKey(key);
         chunk = Chunk(
           noise: noise,
-          chunkCoords: Vector2i(chunkX, chunkY),
+          chunkCoords: (x: chunkX, y: chunkY),
           chunkSize: chunkSize,
           tileSize: tileSize,
         );
@@ -149,12 +148,12 @@ class ChunkManager {
     }
   }
 
-  List<Vector2i> _generateDiskOffsets(int radius) {
-    final offsets = <Vector2i>[];
+  List<Point> _generateDiskOffsets(int radius) {
+    final offsets = <Point>[];
     for (int x = -radius; x <= radius; x++) {
       for (int y = -radius; y <= radius; y++) {
         if (x * x + y * y <= radius * radius) {
-          offsets.add(Vector2i(x, y));
+          offsets.add((x: x, y: y));
         }
       }
     }

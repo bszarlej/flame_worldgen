@@ -1,6 +1,6 @@
 import 'package:flame/components.dart';
 
-import 'chunk_manager.dart';
+import '../../flame_procedural_generation.dart';
 
 typedef TileFactory =
     PositionComponent Function(Vector2 position, double noiseValue);
@@ -27,12 +27,15 @@ class ProceduralWorld2D extends World {
         for (int y = 0; y < chunk.chunkSize.y; y++) {
           final tilePos = chunk.getTileWorldPosition(x, y);
           final globalCoords = chunk.getGlobalTileCoords(x, y);
-          final key = globalCoords.toPackedKey();
+          final key = packKey(globalCoords.x, globalCoords.y);
           _visibleTiles.add(key);
 
           if (!_tiles.containsKey(key)) {
             final noiseValue = chunk.getNoise(x, y);
-            final tile = tileFactory(tilePos.toVector2(), noiseValue);
+            final tile = tileFactory(
+              Vector2(tilePos.x.toDouble(), tilePos.y.toDouble()),
+              noiseValue,
+            );
             _tiles[key] = tile;
             add(tile);
           }

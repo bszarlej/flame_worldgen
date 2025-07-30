@@ -9,9 +9,9 @@ void main() {
     test('generates consistent height map', () {
       final chunk = Chunk(
         noise: noise,
-        chunkCoords: const Vector2i(0, 0),
-        chunkSize: const Vector2i(4, 4),
-        tileSize: const Vector2i(1, 1),
+        chunkCoords: const (x: 0, y: 0),
+        chunkSize: const (x: 4, y: 4),
+        tileSize: const (x: 1, y: 1),
       );
 
       expect(chunk.heightMap.length, equals(16));
@@ -22,23 +22,23 @@ void main() {
     test('returns correct world and global tile coordinates', () {
       final chunk = Chunk(
         noise: noise,
-        chunkCoords: const Vector2i(1, 1),
-        chunkSize: const Vector2i(2, 2),
-        tileSize: const Vector2i(16, 16),
+        chunkCoords: const (x: 1, y: 1),
+        chunkSize: const (x: 2, y: 2),
+        tileSize: const (x: 16, y: 16),
       );
 
       final worldPos = chunk.getTileWorldPosition(1, 1);
-      expect(worldPos, equals(const Vector2i(48, 48)));
+      expect(worldPos, equals(const (x: 48, y: 48)));
 
       final global = chunk.getGlobalTileCoords(1, 1);
-      expect(global, equals(const Vector2i(3, 3)));
+      expect(global, equals(const (x: 3, y: 3)));
     });
   });
 
   group('ChunkManager', () {
     final noise = PerlinNoise();
-    final chunkSize = const Vector2i(2, 2);
-    final tileSize = const Vector2i(16, 16);
+    final chunkSize = const (x: 2, y: 2);
+    final tileSize = const (x: 16, y: 16);
 
     late ChunkManager manager;
 
@@ -110,7 +110,7 @@ void main() {
     });
 
     test('world <-> chunk conversion is reversible', () {
-      final chunkSize = const Vector2i(32, 32);
+      final chunkSize = const (x: 32, y: 32);
       final worldPos = Vector2(160, 64);
       final chunkPos = worldToChunkPosition(worldPos, chunkSize);
       final result = chunkToWorldPosition(chunkPos, chunkSize);

@@ -4,4 +4,5 @@ linter:
   rules:
     - prefer_relative_imports
     - prefer_const_constructors
+    - prefer_const_declarations
     - prefer_single_quotes

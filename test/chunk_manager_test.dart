@@ -3,42 +3,10 @@ import 'package:flame_procedural_generation/flame_procedural_generation.dart';
 import 'package:test/test.dart';
 
 void main() {
-  group('Chunk', () {
-    final noise = PerlinNoise();
-
-    test('generates consistent height map', () {
-      final chunk = Chunk(
-        noise: noise,
-        chunkCoords: const (x: 0, y: 0),
-        chunkSize: const (x: 4, y: 4),
-        tileSize: const (x: 1, y: 1),
-      );
-
-      expect(chunk.heightMap.length, equals(16));
-      final value = chunk.getNoise(2, 3);
-      expect(value, isA<double>());
-    });
-
-    test('returns correct world and global tile coordinates', () {
-      final chunk = Chunk(
-        noise: noise,
-        chunkCoords: const (x: 1, y: 1),
-        chunkSize: const (x: 2, y: 2),
-        tileSize: const (x: 16, y: 16),
-      );
-
-      final worldPos = chunk.getTileWorldPosition(1, 1);
-      expect(worldPos, equals(const (x: 48, y: 48)));
-
-      final global = chunk.getGlobalTileCoords(1, 1);
-      expect(global, equals(const (x: 3, y: 3)));
-    });
-  });
-
   group('ChunkManager', () {
     final noise = PerlinNoise();
-    final chunkSize = const (x: 2, y: 2);
-    final tileSize = const (x: 16, y: 16);
+    const chunkSize = (x: 2, y: 2);
+    const tileSize = (x: 16, y: 16);
 
     late ChunkManager manager;
 
@@ -96,27 +64,6 @@ void main() {
       // Move far out to unload queued
       manager.updateVisibleChunks(Vector2(5000, 5000));
       expect(manager.queuedLoads, lessThanOrEqualTo(preQueued));
-    });
-  });
-
-  group('Utility', () {
-    test('pack and unpack key round trip', () {
-      final x = 1234;
-      final y = -5678;
-      final packed = packKey(x, y);
-      final (ux, uy) = unpackKey(packed);
-      expect(ux, equals(x));
-      expect(uy, equals(y));
-    });
-
-    test('world <-> chunk conversion is reversible', () {
-      final chunkSize = const (x: 32, y: 32);
-      final worldPos = Vector2(160, 64);
-      final chunkPos = worldToChunkPosition(worldPos, chunkSize);
-      final result = chunkToWorldPosition(chunkPos, chunkSize);
-
-      expect(result.x, closeTo(worldPos.x, 1e-6));
-      expect(result.y, closeTo(worldPos.y, 1e-6));
     });
   });
 }

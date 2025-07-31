@@ -3,19 +3,19 @@ import 'package:flame/components.dart';
 import '../../flame_procedural_generation.dart';
 
 typedef TileFactory =
-    PositionComponent Function(Vector2 position, double noiseValue);
+    List<PositionComponent>? Function(Vector2 position, double noiseValue);
 
 class ProceduralWorld2D extends World {
   final ChunkManager chunkManager;
   final TileFactory tileFactory;
 
-  final Map<int, PositionComponent> _tiles = {};
+  final Map<int, List<PositionComponent>> _tiles = {};
   final Set<int> _visibleTiles = {};
 
   ProceduralWorld2D({required this.chunkManager, required this.tileFactory});
 
-  void updateWorldView(Vector2 centerPosition) {
-    chunkManager.updateVisibleChunks(centerPosition);
+  void updateWorldView(Vector2 center) {
+    chunkManager.updateVisibleChunks(center);
     _updateTiles();
   }
 
@@ -32,12 +32,14 @@ class ProceduralWorld2D extends World {
           if (!_tiles.containsKey(key)) {
             final noiseValue = chunk.getNoise(x, y);
             final tilePos = chunk.getTileWorldPosition(x, y);
-            final tile = tileFactory(
+            final tiles = tileFactory(
               Vector2(tilePos.x.toDouble(), tilePos.y.toDouble()),
               noiseValue,
             );
-            _tiles[key] = tile;
-            add(tile);
+            if (tiles != null) {
+              _tiles[key] = tiles;
+              addAll(tiles);
+            }
           }
         }
       }
@@ -47,8 +49,8 @@ class ProceduralWorld2D extends World {
         .where((key) => !_visibleTiles.contains(key))
         .toList();
     for (final key in toRemove) {
-      final tile = _tiles.remove(key);
-      tile?.removeFromParent();
+      final tiles = _tiles.remove(key);
+      tiles?.forEach((tile) => tile.removeFromParent());
     }
   }
 }

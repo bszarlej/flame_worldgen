@@ -2,6 +2,10 @@ import 'package:flame/game.dart';
 
 typedef Point = ({int x, int y});
 
+extension PointX on Point {
+  Vector2 toVector2() => Vector2(x.toDouble(), y.toDouble());
+}
+
 Vector2 chunkToWorldPosition(Vector2 chunkCoords, Point chunkWorldSize) {
   return Vector2(
     chunkCoords.x * chunkWorldSize.x,

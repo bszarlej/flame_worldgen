@@ -1,6 +1,7 @@
 import 'package:flame/components.dart';
 
-import '../../flame_procedural_generation.dart';
+import '../utils/utils.dart';
+import 'chunk_manager.dart';
 
 typedef TileFactory =
     List<PositionComponent>? Function(Vector2 position, double noiseValue);

@@ -1,8 +1,8 @@
-name: flame_procedural_generation
+name: flame_worldgen
 description: "A new Flutter package project."
 version: 0.0.1
-repository: https://github.com/bszarlej/flame_procedural_generation
-issue_tracker: https://github.com/bszarlej/flame_procedural_generation/issues
+repository: https://github.com/bszarlej/flame_worldgen
+issue_tracker: https://github.com/bszarlej/flame_worldgen/issues
 topics:
   - flame
   - noise

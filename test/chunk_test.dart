@@ -1,4 +1,4 @@
-import 'package:flame_procedural_generation/flame_procedural_generation.dart';
+import 'package:flame_worldgen/flame_worldgen.dart';
 import 'package:test/test.dart';
 
 void main() {

@@ -24,31 +24,31 @@ class Chunk {
 
   List<double> get heightMap => _heightMap;
 
-  Point getGlobalTileCoords(int x, int y) {
-    final worldPos = getTileWorldPosition(x, y);
+  Point getGlobalTileCoords(int col, int row) {
+    final worldPos = getTileWorldPosition(col, row);
     return (
       x: (worldPos.x / tileSize.x).floor(),
       y: (worldPos.y / tileSize.y).floor(),
     );
   }
 
-  double getNoise(int x, int y) {
-    final index = y * chunkSize.x + x;
+  double getNoise(int col, int row) {
+    final index = row * chunkSize.x + col;
     return _heightMap[index];
   }
 
-  Point getTileWorldPosition(int x, int y) {
+  Point getTileWorldPosition(int col, int row) {
     return (
-      x: (chunkCoords.x * chunkSize.x * tileSize.x + x * tileSize.x),
-      y: (chunkCoords.y * chunkSize.y * tileSize.y + y * tileSize.y),
+      x: (chunkCoords.x * chunkSize.x * tileSize.x + col * tileSize.x),
+      y: (chunkCoords.y * chunkSize.y * tileSize.y + row * tileSize.y),
     );
   }
 
   void _generateHeightMap() {
-    for (int x = 0; x < chunkSize.x; x++) {
-      for (int y = 0; y < chunkSize.y; y++) {
-        final globalPos = getTileWorldPosition(x, y);
-        final index = y * chunkSize.x + x;
+    for (int col = 0; col < chunkSize.x; col++) {
+      for (int row = 0; row < chunkSize.y; row++) {
+        final globalPos = getTileWorldPosition(col, row);
+        final index = row * chunkSize.x + col;
         _heightMap[index] = noise.getNoise2(
           globalPos.x.toDouble(),
           globalPos.y.toDouble(),

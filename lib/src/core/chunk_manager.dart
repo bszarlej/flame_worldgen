@@ -19,7 +19,7 @@ class ChunkManager {
   int _loadDistance;
   late List<Point> _diskOffsets;
   final Map<int, Chunk> _loadedChunks = {};
-  final Map<int, Chunk> _cachedChunks = {};
+  final LinkedHashMap<int, Chunk> _cachedChunks = LinkedHashMap();
   final Queue<int> _chunksToLoad = Queue();
   final Queue<int> _chunksToUnload = Queue();
   final Set<int> _loadingSet = {};

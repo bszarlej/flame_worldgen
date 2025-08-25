@@ -8,7 +8,7 @@ class Chunk {
   final Point chunkSize;
   final Point tileSize;
 
-  late final List<double> _heightMap;
+  final List<double> _heightMap;
 
   Chunk({
     required this.noise,

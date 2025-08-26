@@ -4,15 +4,6 @@ import 'package:test/test.dart';
 
 void main() {
   group('Utility', () {
-    test('pack and unpack key round trip', () {
-      const x = 1234;
-      const y = -5678;
-      final packed = packKey(x, y);
-      final point = unpackKey(packed);
-      expect(point.x, equals(x));
-      expect(point.y, equals(y));
-    });
-
     test('world <-> chunk conversion works', () {
       const chunkWorldSize = Vector2i(32, 32);
       final worldPos = Vector2(192, 64);

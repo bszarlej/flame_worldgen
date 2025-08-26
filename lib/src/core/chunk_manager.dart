@@ -19,12 +19,12 @@ class ChunkManager {
 
   int _loadDistance;
   late List<Vector2i> _diskOffsets;
-  final Map<int, Chunk> _loadedChunks = {};
-  final LinkedHashMap<int, Chunk> _cachedChunks = LinkedHashMap();
-  final Queue<int> _chunksToLoad = Queue();
-  final Queue<int> _chunksToUnload = Queue();
-  final Set<int> _loadingSet = {};
-  final Set<int> _unloadingSet = {};
+  final Map<Vector2i, Chunk> _loadedChunks = {};
+  final LinkedHashMap<Vector2i, Chunk> _cachedChunks = LinkedHashMap();
+  final Queue<Vector2i> _chunksToLoad = Queue();
+  final Queue<Vector2i> _chunksToUnload = Queue();
+  final Set<Vector2i> _loadingSet = {};
+  final Set<Vector2i> _unloadingSet = {};
 
   ChunkManager({
     required this.noise,
@@ -49,7 +49,7 @@ class ChunkManager {
 
   Vector2i get chunkWorldSize =>
       Vector2i(chunkSize.x * tileSize.x, chunkSize.y * tileSize.y);
-  Map<int, Chunk> get loadedChunks => _loadedChunks;
+  Map<Vector2i, Chunk> get loadedChunks => _loadedChunks;
   int get queuedLoads => _chunksToLoad.length;
   int get queuedUnloads => _chunksToUnload.length;
   int get totalCached => _cachedChunks.length;
@@ -60,7 +60,7 @@ class ChunkManager {
       chunkWorldSize,
     );
 
-    final Set<int> chunksToKeep = _getChunksWithinLoadRadius(
+    final Set<Vector2i> chunksToKeep = _getChunksWithinLoadRadius(
       centerChunkPosition.x.floor(),
       centerChunkPosition.y.floor(),
     );
@@ -72,18 +72,18 @@ class ChunkManager {
     _processChunkUnloadQueue();
   }
 
-  Set<int> _getChunksWithinLoadRadius(int centerChunkX, int centerChunkY) {
-    final Set<int> chunksToKeep = {};
+  Set<Vector2i> _getChunksWithinLoadRadius(int centerChunkX, int centerChunkY) {
+    final Set<Vector2i> chunksToKeep = {};
     for (final offset in _diskOffsets) {
       final chunkX = centerChunkX + offset.x;
       final chunkY = centerChunkY + offset.y;
-      final key = packKey(chunkX, chunkY);
+      final key = Vector2i(chunkX, chunkY);
       chunksToKeep.add(key);
     }
     return chunksToKeep;
   }
 
-  void _scheduleChunksToLoad(Set<int> chunksToKeep) {
+  void _scheduleChunksToLoad(Set<Vector2i> chunksToKeep) {
     for (final key in chunksToKeep) {
       if (!_loadedChunks.containsKey(key) && !_loadingSet.contains(key)) {
         _chunksToLoad.addLast(key);
@@ -102,10 +102,9 @@ class ChunkManager {
       if (_cachedChunks.containsKey(key)) {
         chunk = _cachedChunks.remove(key)!;
       } else {
-        final chunkCoords = unpackKey(key);
         chunk = Chunk(
           noise: noise,
-          chunkCoords: chunkCoords,
+          chunkCoords: key,
           chunkSize: chunkSize,
           tileSize: tileSize,
         );
@@ -116,7 +115,7 @@ class ChunkManager {
     }
   }
 
-  void _scheduleChunksForUnload(Set<int> chunksToKeep) {
+  void _scheduleChunksForUnload(Set<Vector2i> chunksToKeep) {
     for (final key in _loadedChunks.keys) {
       if (!chunksToKeep.contains(key) && !_unloadingSet.contains(key)) {
         _chunksToUnload.addLast(key);

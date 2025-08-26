@@ -23,13 +23,3 @@ Vector2 tileToWorldPosition(Vector2 tileCoords, Vector2i tileSize) {
 Vector2 worldToTilePosition(Vector2 worldPosition, Vector2i tileSize) {
   return Vector2(worldPosition.x / tileSize.x, worldPosition.y / tileSize.y);
 }
-
-int packKey(int x, int y) {
-  return (x << 32) | (y & 0xFFFFFFFF);
-}
-
-Vector2i unpackKey(int key) {
-  final x = key >> 32;
-  final y = key & 0xFFFFFFFF;
-  return Vector2i(x, y >= 0x80000000 ? y - 0x100000000 : y);
-}

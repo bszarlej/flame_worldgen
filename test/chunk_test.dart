@@ -8,9 +8,9 @@ void main() {
     test('generates consistent height map', () {
       final chunk = Chunk(
         noise: noise,
-        chunkCoords: const (x: 0, y: 0),
-        chunkSize: const (x: 4, y: 4),
-        tileSize: const (x: 1, y: 1),
+        chunkCoords: const Vector2i(0, 0),
+        chunkSize: const Vector2i(4, 4),
+        tileSize: const Vector2i(1, 1),
       );
 
       expect(chunk.heightMap.length, equals(16));
@@ -21,9 +21,9 @@ void main() {
     test('returns correct world and global tile coordinates', () {
       final chunk = Chunk(
         noise: noise,
-        chunkCoords: const (x: 1, y: 1),
-        chunkSize: const (x: 2, y: 2),
-        tileSize: const (x: 16, y: 16),
+        chunkCoords: const Vector2i(1, 1),
+        chunkSize: const Vector2i(2, 2),
+        tileSize: const Vector2i(16, 16),
       );
 
       final worldPos = chunk.getTileWorldPosition(1, 1);

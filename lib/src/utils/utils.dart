@@ -1,30 +1,26 @@
 import 'package:flame/game.dart';
 
-typedef Point = ({int x, int y});
+import '../math/vector2i.dart';
 
-extension PointX on Point {
-  Vector2 toVector2() => Vector2(x.toDouble(), y.toDouble());
-}
-
-Vector2 chunkToWorldPosition(Vector2 chunkCoords, Point chunkWorldSize) {
+Vector2 chunkToWorldPosition(Vector2 chunkCoords, Vector2i chunkWorldSize) {
   return Vector2(
     chunkCoords.x * chunkWorldSize.x,
     chunkCoords.y * chunkWorldSize.y,
   );
 }
 
-Vector2 worldToChunkPosition(Vector2 worldPosition, Point chunkWorldSize) {
+Vector2 worldToChunkPosition(Vector2 worldPosition, Vector2i chunkWorldSize) {
   return Vector2(
     worldPosition.x / chunkWorldSize.x,
     worldPosition.y / chunkWorldSize.y,
   );
 }
 
-Vector2 tileToWorldPosition(Vector2 tileCoords, Point tileSize) {
+Vector2 tileToWorldPosition(Vector2 tileCoords, Vector2i tileSize) {
   return Vector2(tileCoords.x * tileSize.x, tileCoords.y * tileSize.y);
 }
 
-Vector2 worldToTilePosition(Vector2 worldPosition, Point tileSize) {
+Vector2 worldToTilePosition(Vector2 worldPosition, Vector2i tileSize) {
   return Vector2(worldPosition.x / tileSize.x, worldPosition.y / tileSize.y);
 }
 
@@ -32,8 +28,8 @@ int packKey(int x, int y) {
   return (x << 32) | (y & 0xFFFFFFFF);
 }
 
-Point unpackKey(int key) {
+Vector2i unpackKey(int key) {
   final x = key >> 32;
   final y = key & 0xFFFFFFFF;
-  return (x: x, y: y >= 0x80000000 ? y - 0x100000000 : y);
+  return Vector2i(x, y >= 0x80000000 ? y - 0x100000000 : y);
 }

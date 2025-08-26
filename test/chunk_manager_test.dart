@@ -5,8 +5,8 @@ import 'package:test/test.dart';
 void main() {
   group('ChunkManager', () {
     final noise = PerlinNoise();
-    const chunkSize = (x: 2, y: 2);
-    const tileSize = (x: 16, y: 16);
+    const chunkSize = Vector2i(2, 2);
+    const tileSize = Vector2i(16, 16);
 
     late ChunkManager manager;
 

@@ -8,18 +8,8 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/ci.yaml
-  
-  dry-run:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dart-lang/setup-dart@v1
-      - run: dart pub get
-      - run: dart pub publish --dry-run
-
   publish:
-    needs: [test, dry-run]
+    needs: test
     uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
     permissions:
       id-token: write

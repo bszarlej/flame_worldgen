@@ -14,7 +14,7 @@ void main() {
     });
 
     test('world <-> chunk conversion works', () {
-      const chunkWorldSize = (x: 32, y: 32);
+      const chunkWorldSize = Vector2i(32, 32);
       final worldPos = Vector2(192, 64);
 
       final chunkPos = worldToChunkPosition(worldPos, chunkWorldSize);
@@ -28,7 +28,7 @@ void main() {
     });
 
     test('world <-> tile conversion works', () {
-      const tileSize = (x: 16, y: 16);
+      const tileSize = Vector2i(16, 16);
       final worldPos = Vector2(208, 48);
       final tilePos = worldToTilePosition(worldPos, tileSize);
       final result = tileToWorldPosition(tilePos, tileSize);

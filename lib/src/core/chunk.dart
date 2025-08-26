@@ -1,12 +1,12 @@
 import 'package:fast_noise/fast_noise.dart';
 
-import '../utils/utils.dart';
+import '../math/vector2i.dart';
 
 class Chunk {
   final Noise2 noise;
-  final Point chunkCoords;
-  final Point chunkSize;
-  final Point tileSize;
+  final Vector2i chunkCoords;
+  final Vector2i chunkSize;
+  final Vector2i tileSize;
 
   final List<double> _heightMap;
 
@@ -19,16 +19,16 @@ class Chunk {
     _generateHeightMap();
   }
 
-  Point get chunkWorldSize =>
-      (x: chunkSize.x * tileSize.x, y: chunkSize.y * tileSize.y);
+  Vector2i get chunkWorldSize =>
+      Vector2i(chunkSize.x * tileSize.x, chunkSize.y * tileSize.y);
 
   List<double> get heightMap => _heightMap;
 
-  Point getGlobalTileCoords(int col, int row) {
+  Vector2i getGlobalTileCoords(int col, int row) {
     final worldPos = getTileWorldPosition(col, row);
-    return (
-      x: (worldPos.x / tileSize.x).floor(),
-      y: (worldPos.y / tileSize.y).floor(),
+    return Vector2i(
+      (worldPos.x / tileSize.x).floor(),
+      (worldPos.y / tileSize.y).floor(),
     );
   }
 
@@ -37,10 +37,10 @@ class Chunk {
     return _heightMap[index];
   }
 
-  Point getTileWorldPosition(int col, int row) {
-    return (
-      x: (chunkCoords.x * chunkSize.x * tileSize.x + col * tileSize.x),
-      y: (chunkCoords.y * chunkSize.y * tileSize.y + row * tileSize.y),
+  Vector2i getTileWorldPosition(int col, int row) {
+    return Vector2i(
+      (chunkCoords.x * chunkSize.x * tileSize.x + col * tileSize.x),
+      (chunkCoords.y * chunkSize.y * tileSize.y + row * tileSize.y),
     );
   }
 

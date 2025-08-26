@@ -27,10 +27,10 @@ void main() {
       );
 
       final worldPos = chunk.getTileWorldPosition(1, 1);
-      expect(worldPos, equals(const (x: 48, y: 48)));
+      expect(worldPos, equals(const Vector2i(48, 48)));
 
       final global = chunk.getGlobalTileCoords(1, 1);
-      expect(global, equals(const (x: 3, y: 3)));
+      expect(global, equals(const Vector2i(3, 3)));
     });
   });
 }

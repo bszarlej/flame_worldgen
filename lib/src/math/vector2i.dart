@@ -4,16 +4,19 @@ import 'package:flame/game.dart' show Vector2;
 
 /// A simple integer vector class for 2D coordinates.
 class Vector2i implements Comparable<Vector2i> {
-  final int x;
-  final int y;
-
-  const Vector2i(this.x, this.y);
-
   /// Zero vector (0,0)
   static const zero = Vector2i(0, 0);
 
   /// One vector (1,1)
   static const one = Vector2i(1, 1);
+
+  final int x;
+  final int y;
+
+  const Vector2i(this.x, this.y);
+
+  factory Vector2i.fromVector2(Vector2 vec2) =>
+      Vector2i(vec2.x.floor(), vec2.y.floor());
 
   /// Copy with optional overrides
   Vector2i copyWith({int? x, int? y}) => Vector2i(x ?? this.x, y ?? this.y);

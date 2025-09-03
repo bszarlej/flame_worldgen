@@ -16,8 +16,6 @@ void main() {
         chunkSize: chunkSize,
         tileSize: tileSize,
         chunkCacheSize: 3,
-        chunkLoadLimitPerFrame: 5,
-        chunkUnloadLimitPerFrame: 5,
       );
     });
 
@@ -47,14 +45,6 @@ void main() {
       }
 
       expect(manager.totalCached, lessThanOrEqualTo(manager.chunkCacheSize));
-    });
-
-    test('chunk loading is queued and capped per frame', () {
-      manager.chunkLoadLimitPerFrame = 1;
-      manager.updateVisibleChunks(Vector2(0, 0));
-
-      expect(manager.queuedLoads + manager.loadedChunks.length, greaterThan(1));
-      expect(manager.loadedChunks.length, lessThanOrEqualTo(1));
     });
 
     test('chunksToLoad is cleared when out of radius', () {

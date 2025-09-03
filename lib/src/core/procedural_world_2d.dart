@@ -1,58 +1,64 @@
+import 'dart:async';
+import 'dart:ui';
+
 import 'package:flame/components.dart';
+import 'package:flame/sprite.dart';
 
-import '../math/vector2i.dart';
-import 'chunk_manager.dart';
+import '../../flame_worldgen.dart';
 
-typedef TileFactory =
-    List<PositionComponent>? Function(Vector2 position, double noiseValue);
+class ProcedurallyGeneratedWorld extends World with HasGameReference {
+  final ChunkManager chunkManager;
+  final SpriteBatch tileSpriteBatch;
+  final Rect Function(double noiseValue) tileSpriteSelector;
 
-class ProceduralWorld2D extends World with HasGameReference {
-  ChunkManager chunkManager;
-  TileFactory tileFactory;
+  late final StreamSubscription<void> _chunkUpdateSubscription;
 
-  final Map<Vector2i, List<PositionComponent>> _tiles = {};
-  final Set<Vector2i> _visibleTiles = {};
+  ProcedurallyGeneratedWorld({
+    required this.chunkManager,
+    required this.tileSpriteBatch,
+    required this.tileSpriteSelector,
+  });
 
-  ProceduralWorld2D({required this.chunkManager, required this.tileFactory});
+  @override
+  FutureOr<void> onLoad() async {
+    await super.onLoad();
+    _chunkUpdateSubscription = chunkManager.onChunkUpdate.listen(
+      (_) => _onChunkUpdate(),
+    );
+  }
+
+  @override
+  Future<void> onRemove() async {
+    await _chunkUpdateSubscription.cancel();
+    chunkManager.dispose();
+    super.onRemove();
+  }
 
   @override
   void update(double dt) {
     super.update(dt);
     chunkManager.updateVisibleChunks(game.camera.viewfinder.position);
-    _updateTiles();
   }
 
-  void _updateTiles() {
-    _visibleTiles.clear();
+  @override
+  void render(Canvas canvas) {
+    super.render(canvas);
+    tileSpriteBatch.render(canvas);
+  }
 
+  void _onChunkUpdate() {
+    tileSpriteBatch.clear();
     for (final chunk in chunkManager.loadedChunks.values) {
-      for (int x = 0; x < chunk.chunkSize.x; x++) {
-        for (int y = 0; y < chunk.chunkSize.y; y++) {
-          final key = chunk.getGlobalTileCoords(x, y);
-          _visibleTiles.add(key);
-
-          if (!_tiles.containsKey(key)) {
-            final noiseValue = chunk.getNoise(x, y);
-            final tilePos = chunk.getTileWorldPosition(x, y);
-            final tiles = tileFactory.call(
-              Vector2(tilePos.x.toDouble(), tilePos.y.toDouble()),
-              noiseValue,
-            );
-            if (tiles != null) {
-              _tiles[key] = tiles;
-              addAll(tiles);
-            }
-          }
+      for (int col = 0; col < chunk.chunkSize.x; col++) {
+        for (int row = 0; row < chunk.chunkSize.y; row++) {
+          final noiseValue = chunk.getNoise(col, row);
+          final tileWorldPosition = chunk.getTileWorldPosition(col, row);
+          tileSpriteBatch.add(
+            source: tileSpriteSelector(noiseValue),
+            offset: tileWorldPosition,
+          );
         }
       }
-    }
-
-    final toRemove = _tiles.keys
-        .where((key) => !_visibleTiles.contains(key))
-        .toList();
-    for (final key in toRemove) {
-      final tiles = _tiles.remove(key);
-      tiles?.forEach((tile) => tile.removeFromParent());
     }
   }
 }

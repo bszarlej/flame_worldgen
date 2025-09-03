@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 
 import 'package:fast_noise/fast_noise.dart';
@@ -11,42 +12,42 @@ class ChunkManager {
   final Noise2 noise;
   final Vector2i chunkSize;
   final Vector2i tileSize;
-  int chunkCacheSize;
-  int chunkLoadLimitPerFrame;
-  int chunkUnloadLimitPerFrame;
   final void Function(Chunk chunk)? onChunkLoaded;
   final void Function(Chunk chunk)? onChunkUnloaded;
+  int chunkCacheSize;
 
-  int _loadDistance;
-  late List<Vector2i> _diskOffsets;
   final Map<Vector2i, Chunk> _loadedChunks = {};
-  final LinkedHashMap<Vector2i, Chunk> _cachedChunks = LinkedHashMap();
+  final Map<Vector2i, Chunk> _cachedChunks = {};
   final Queue<Vector2i> _chunksToLoad = Queue();
   final Queue<Vector2i> _chunksToUnload = Queue();
+  final _chunkUpdateController = StreamController<void>.broadcast();
   final Set<Vector2i> _loadingSet = {};
   final Set<Vector2i> _unloadingSet = {};
+  late List<Vector2i> _diskOffsets;
+  int _viewDistance;
+  Vector2i? _previousChunkPosition;
 
   ChunkManager({
     required this.noise,
     required this.chunkSize,
     required this.tileSize,
     this.chunkCacheSize = 100,
-    this.chunkLoadLimitPerFrame = 10,
-    this.chunkUnloadLimitPerFrame = 10,
-    int loadDistance = 4,
+    int viewDistance = 4,
     this.onChunkLoaded,
     this.onChunkUnloaded,
-  }) : _loadDistance = loadDistance {
-    _diskOffsets = _generateDiskOffsets(_loadDistance);
+  }) : _viewDistance = viewDistance {
+    _diskOffsets = _generateDiskOffsets(_viewDistance);
   }
 
-  int get loadDistance => _loadDistance;
+  int get viewDistance => _viewDistance;
 
-  set loadDistance(int value) {
-    _loadDistance = value.clamp(0, double.infinity).toInt();
-    _diskOffsets = _generateDiskOffsets(_loadDistance);
+  set viewDistance(int value) {
+    _viewDistance = value.clamp(0, double.infinity).toInt();
+    _diskOffsets = _generateDiskOffsets(_viewDistance);
+    _previousChunkPosition = null;
   }
 
+  Stream<void> get onChunkUpdate => _chunkUpdateController.stream;
   Vector2i get chunkWorldSize =>
       Vector2i(chunkSize.x * tileSize.x, chunkSize.y * tileSize.y);
   Map<Vector2i, Chunk> get loadedChunks => _loadedChunks;
@@ -54,98 +55,69 @@ class ChunkManager {
   int get queuedUnloads => _chunksToUnload.length;
   int get totalCached => _cachedChunks.length;
 
-  void updateVisibleChunks(Vector2 centerPosition) {
-    final centerChunkPosition = worldToChunkPosition(
-      centerPosition,
-      chunkWorldSize,
-    );
-
-    final Set<Vector2i> chunksToKeep = _getChunksWithinLoadRadius(
-      centerChunkPosition.x.floor(),
-      centerChunkPosition.y.floor(),
-    );
-
-    _scheduleChunksToLoad(chunksToKeep);
-    _scheduleChunksForUnload(chunksToKeep);
-
-    _processChunkLoadQueue();
-    _processChunkUnloadQueue();
+  void dispose() {
+    _chunkUpdateController.close();
   }
 
-  Set<Vector2i> _getChunksWithinLoadRadius(int centerChunkX, int centerChunkY) {
+  void updateVisibleChunks(Vector2 centerPosition) {
+    final centerChunkPosition = Vector2i.fromVector2(
+      worldToChunkPosition(centerPosition, chunkWorldSize),
+    );
+
+    if (_previousChunkPosition != centerChunkPosition) {
+      final Set<Vector2i> chunksToKeep = _getChunksWithinLoadRadius(
+        centerChunkPosition,
+      );
+
+      // load new chunks
+      for (final key in chunksToKeep) {
+        if (!_loadedChunks.containsKey(key) && !_loadingSet.contains(key)) {
+          Chunk chunk;
+          if (_cachedChunks.containsKey(key)) {
+            chunk = _cachedChunks.remove(key)!;
+          } else {
+            chunk = Chunk(
+              noise: noise,
+              chunkCoords: key,
+              chunkSize: chunkSize,
+              tileSize: tileSize,
+            );
+          }
+          _loadedChunks[key] = chunk;
+          onChunkLoaded?.call(chunk);
+        }
+      }
+
+      //unload and cache old chunks
+      for (final key in _loadedChunks.keys.toList()) {
+        if (!chunksToKeep.contains(key) && !_unloadingSet.contains(key)) {
+          final chunk = _loadedChunks.remove(key);
+          _unloadingSet.remove(key);
+          if (chunk != null) {
+            _cachedChunks[key] = chunk;
+            if (_cachedChunks.length > chunkCacheSize) {
+              _cachedChunks.remove(_cachedChunks.keys.first);
+            }
+            onChunkUnloaded?.call(chunk);
+          }
+        }
+      }
+
+      _chunkUpdateController.add(null);
+
+      _previousChunkPosition = centerChunkPosition;
+    }
+  }
+
+  Set<Vector2i> _getChunksWithinLoadRadius(Vector2i centerChunk) {
     final Set<Vector2i> chunksToKeep = {};
     for (final offset in _diskOffsets) {
-      final chunkX = centerChunkX + offset.x;
-      final chunkY = centerChunkY + offset.y;
+      final chunkX = centerChunk.x + offset.x;
+      final chunkY = centerChunk.y + offset.y;
       final key = Vector2i(chunkX, chunkY);
       chunksToKeep.add(key);
     }
     return chunksToKeep;
-  }
-
-  void _scheduleChunksToLoad(Set<Vector2i> chunksToKeep) {
-    for (final key in chunksToKeep) {
-      if (!_loadedChunks.containsKey(key) && !_loadingSet.contains(key)) {
-        _chunksToLoad.addLast(key);
-        _loadingSet.add(key);
-      }
-    }
-  }
-
-  void _processChunkLoadQueue() {
-    int loadedCount = 0;
-    while (_chunksToLoad.isNotEmpty && loadedCount < chunkLoadLimitPerFrame) {
-      final key = _chunksToLoad.removeFirst();
-      _loadingSet.remove(key);
-
-      Chunk chunk;
-      if (_cachedChunks.containsKey(key)) {
-        chunk = _cachedChunks.remove(key)!;
-      } else {
-        chunk = Chunk(
-          noise: noise,
-          chunkCoords: key,
-          chunkSize: chunkSize,
-          tileSize: tileSize,
-        );
-      }
-      _loadedChunks[key] = chunk;
-      onChunkLoaded?.call(chunk);
-      loadedCount++;
-    }
-  }
-
-  void _scheduleChunksForUnload(Set<Vector2i> chunksToKeep) {
-    for (final key in _loadedChunks.keys) {
-      if (!chunksToKeep.contains(key) && !_unloadingSet.contains(key)) {
-        _chunksToUnload.addLast(key);
-        _unloadingSet.add(key);
-      }
-    }
-
-    _chunksToLoad.removeWhere((key) {
-      final shouldRemove = !chunksToKeep.contains(key);
-      if (shouldRemove) _loadingSet.remove(key);
-      return shouldRemove;
-    });
-  }
-
-  void _processChunkUnloadQueue() {
-    int unloadedCount = 0;
-    while (_chunksToUnload.isNotEmpty &&
-        unloadedCount < chunkUnloadLimitPerFrame) {
-      final key = _chunksToUnload.removeFirst();
-      final chunk = _loadedChunks.remove(key);
-      _unloadingSet.remove(key);
-      if (chunk != null) {
-        _cachedChunks[key] = chunk;
-        if (_cachedChunks.length > chunkCacheSize) {
-          _cachedChunks.remove(_cachedChunks.keys.first);
-        }
-        onChunkUnloaded?.call(chunk);
-        unloadedCount++;
-      }
-    }
   }
 
   List<Vector2i> _generateDiskOffsets(int radius) {

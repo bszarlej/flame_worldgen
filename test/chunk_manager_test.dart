@@ -46,14 +46,5 @@ void main() {
 
       expect(manager.totalCached, lessThanOrEqualTo(manager.chunkCacheSize));
     });
-
-    test('chunksToLoad is cleared when out of radius', () {
-      manager.updateVisibleChunks(Vector2(0, 0));
-      final preQueued = manager.queuedLoads;
-
-      // Move far out to unload queued
-      manager.updateVisibleChunks(Vector2(5000, 5000));
-      expect(manager.queuedLoads, lessThanOrEqualTo(preQueued));
-    });
   });
 }

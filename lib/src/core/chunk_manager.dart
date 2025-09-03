@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:collection';
 
 import 'package:fast_noise/fast_noise.dart';
 import 'package:flame/components.dart';
@@ -18,11 +17,7 @@ class ChunkManager {
 
   final Map<Vector2i, Chunk> _loadedChunks = {};
   final Map<Vector2i, Chunk> _cachedChunks = {};
-  final Queue<Vector2i> _chunksToLoad = Queue();
-  final Queue<Vector2i> _chunksToUnload = Queue();
   final _chunkUpdateController = StreamController<void>.broadcast();
-  final Set<Vector2i> _loadingSet = {};
-  final Set<Vector2i> _unloadingSet = {};
   late List<Vector2i> _diskOffsets;
   int _viewDistance;
   Vector2i? _previousChunkPosition;
@@ -51,8 +46,6 @@ class ChunkManager {
   Vector2i get chunkWorldSize =>
       Vector2i(chunkSize.x * tileSize.x, chunkSize.y * tileSize.y);
   Map<Vector2i, Chunk> get loadedChunks => _loadedChunks;
-  int get queuedLoads => _chunksToLoad.length;
-  int get queuedUnloads => _chunksToUnload.length;
   int get totalCached => _cachedChunks.length;
 
   void dispose() {
@@ -71,7 +64,7 @@ class ChunkManager {
 
       // load new chunks
       for (final key in chunksToKeep) {
-        if (!_loadedChunks.containsKey(key) && !_loadingSet.contains(key)) {
+        if (!_loadedChunks.containsKey(key)) {
           Chunk chunk;
           if (_cachedChunks.containsKey(key)) {
             chunk = _cachedChunks.remove(key)!;
@@ -90,9 +83,8 @@ class ChunkManager {
 
       //unload and cache old chunks
       for (final key in _loadedChunks.keys.toList()) {
-        if (!chunksToKeep.contains(key) && !_unloadingSet.contains(key)) {
+        if (!chunksToKeep.contains(key)) {
           final chunk = _loadedChunks.remove(key);
-          _unloadingSet.remove(key);
           if (chunk != null) {
             _cachedChunks[key] = chunk;
             if (_cachedChunks.length > chunkCacheSize) {

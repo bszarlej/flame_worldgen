@@ -7,6 +7,16 @@ import '../math/vector2i.dart';
 import '../utils/utils.dart';
 import 'chunk.dart';
 
+class ChunkUpdateInfo {
+  final List<Chunk> loadedChunks;
+  final List<Chunk> unloadedChunks;
+
+  const ChunkUpdateInfo({
+    this.loadedChunks = const [],
+    this.unloadedChunks = const [],
+  });
+}
+
 class ChunkManager {
   final Noise2 noise;
   final Vector2i chunkSize;
@@ -17,7 +27,7 @@ class ChunkManager {
 
   final Map<Vector2i, Chunk> _loadedChunks = {};
   final Map<Vector2i, Chunk> _cachedChunks = {};
-  final _chunkUpdateController = StreamController<void>.broadcast();
+  final _chunkUpdateController = StreamController<ChunkUpdateInfo>.broadcast();
   late List<Vector2i> _diskOffsets;
   int _viewDistance;
   Vector2i? _previousChunkPosition;
@@ -42,14 +52,14 @@ class ChunkManager {
     _previousChunkPosition = null;
   }
 
-  Stream<void> get onChunkUpdate => _chunkUpdateController.stream;
+  Stream<ChunkUpdateInfo> get onChunkUpdate => _chunkUpdateController.stream;
   Vector2i get chunkWorldSize =>
       Vector2i(chunkSize.x * tileSize.x, chunkSize.y * tileSize.y);
   Map<Vector2i, Chunk> get loadedChunks => _loadedChunks;
   int get totalCached => _cachedChunks.length;
 
-  void dispose() {
-    _chunkUpdateController.close();
+  Future<void> dispose() async {
+    await _chunkUpdateController.close();
   }
 
   void updateVisibleChunks(Vector2 centerPosition) {
@@ -61,6 +71,9 @@ class ChunkManager {
       final Set<Vector2i> chunksToKeep = _getChunksWithinLoadRadius(
         centerChunkPosition,
       );
+
+      final List<Chunk> newChunks = [];
+      final List<Chunk> oldChunks = [];
 
       // load new chunks
       for (final key in chunksToKeep) {
@@ -78,6 +91,7 @@ class ChunkManager {
           }
           _loadedChunks[key] = chunk;
           onChunkLoaded?.call(chunk);
+          newChunks.add(chunk);
         }
       }
 
@@ -91,11 +105,14 @@ class ChunkManager {
               _cachedChunks.remove(_cachedChunks.keys.first);
             }
             onChunkUnloaded?.call(chunk);
+            oldChunks.add(chunk);
           }
         }
       }
 
-      _chunkUpdateController.add(null);
+      _chunkUpdateController.add(
+        ChunkUpdateInfo(loadedChunks: newChunks, unloadedChunks: oldChunks),
+      );
 
       _previousChunkPosition = centerChunkPosition;
     }

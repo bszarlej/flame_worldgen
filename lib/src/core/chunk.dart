@@ -1,5 +1,4 @@
 import 'package:fast_noise/fast_noise.dart';
-import 'package:flame/game.dart';
 
 import '../math/vector2i.dart';
 
@@ -38,10 +37,10 @@ class Chunk {
     return _heightMap[index];
   }
 
-  Vector2 getTileWorldPosition(int col, int row) {
-    return Vector2(
-      (chunkCoords.x * chunkSize.x * tileSize.x + col * tileSize.x).toDouble(),
-      (chunkCoords.y * chunkSize.y * tileSize.y + row * tileSize.y).toDouble(),
+  Vector2i getTileWorldPosition(int col, int row) {
+    return Vector2i(
+      chunkCoords.x * chunkSize.x * tileSize.x + col * tileSize.x,
+      chunkCoords.y * chunkSize.y * tileSize.y + row * tileSize.y,
     );
   }
 

@@ -15,7 +15,12 @@ class Chunk {
     required this.chunkCoords,
     required this.chunkSize,
     required this.tileSize,
-  }) : _heightMap = List.filled(chunkSize.x * chunkSize.y, 0, growable: false) {
+  }) : assert(
+         chunkSize.x > 0 && chunkSize.y > 0,
+         'Chunk size must be positive',
+       ),
+       assert(tileSize.x > 0 && tileSize.y > 0, 'Tile size must be positive'),
+       _heightMap = List.filled(chunkSize.x * chunkSize.y, 0, growable: false) {
     _generateHeightMap();
   }
 

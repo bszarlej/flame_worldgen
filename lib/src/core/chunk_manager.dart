@@ -40,7 +40,12 @@ class ChunkManager {
     int viewDistance = 4,
     this.onChunkLoaded,
     this.onChunkUnloaded,
-  }) : _viewDistance = viewDistance {
+  }) : assert(
+         chunkSize.x > 0 && chunkSize.y > 0,
+         'Chunk size must be positive',
+       ),
+       assert(tileSize.x > 0 && tileSize.y > 0, 'Tile size must be positive'),
+       _viewDistance = viewDistance {
     _diskOffsets = _generateDiskOffsets(_viewDistance);
   }
 

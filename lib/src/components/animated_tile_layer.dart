@@ -28,8 +28,7 @@ class AnimatedTileLayer extends TileLayer {
   @override
   Future<void> onLoad() async {
     await super.onLoad();
-    _timer = Timer(frameDuration, repeat: true, onTick: _updateAnimations)
-      ..start();
+    _timer = Timer(frameDuration, repeat: true, onTick: _updateAnimations);
   }
 
   @override

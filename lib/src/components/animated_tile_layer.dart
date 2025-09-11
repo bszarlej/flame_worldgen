@@ -51,9 +51,9 @@ class AnimatedTileLayer extends TileLayer {
   void _updateAnimations() {
     _currentFrame = (_currentFrame + 1) % frameCount;
 
-    for (final entry in _tileNoiseValues.entries) {
-      final index = entry.key;
-      final noise = entry.value;
+    for (final index in batchIndices.values) {
+      final noise = _tileNoiseValues[index];
+      if (noise == null) continue;
       final source = spriteSelector(noise, _currentFrame);
       if (source != null) spriteBatch.replace(index, source: source);
     }

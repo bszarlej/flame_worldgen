@@ -20,6 +20,7 @@ class AnimatedTileLayer extends TileLayer {
     required this.frameCount,
     required this.frameDuration,
     super.centerPositionProvider,
+    super.paint,
     super.children,
     super.key,
     super.priority,

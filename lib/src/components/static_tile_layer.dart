@@ -10,6 +10,7 @@ class StaticTileLayer extends TileLayer {
     required super.spriteBatch,
     required this.spriteSelector,
     super.centerPositionProvider,
+    super.paint,
     super.children,
     super.key,
     super.priority,

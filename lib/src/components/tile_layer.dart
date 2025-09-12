@@ -12,6 +12,7 @@ abstract class TileLayer extends Component with HasGameReference {
   final ChunkManager chunkManager;
   final SpriteBatch spriteBatch;
   final Vector2 Function()? centerPositionProvider;
+  final Paint? paint;
 
   @protected
   final Map<Vector2i, int> batchIndices = {};
@@ -23,6 +24,7 @@ abstract class TileLayer extends Component with HasGameReference {
     required this.chunkManager,
     required this.spriteBatch,
     this.centerPositionProvider,
+    this.paint,
     super.children,
     super.key,
     super.priority,
@@ -51,7 +53,7 @@ abstract class TileLayer extends Component with HasGameReference {
   @mustCallSuper
   void render(Canvas canvas) {
     super.render(canvas);
-    spriteBatch.render(canvas);
+    spriteBatch.render(canvas, paint: paint);
   }
 
   @override

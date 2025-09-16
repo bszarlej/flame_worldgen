@@ -1,39 +1,174 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# flame_worldgen
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages).
+This package provides a lightweight, modular system for managing
+**procedurally generated tilemaps** in Flutter using the [Flame
+engine](https://flame-engine.org/).\
+It is built around the concept of **chunks**, **noise-based terrain
+generation**, and **sprite selectors** for flexible rendering.
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages).
--->
 
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+<a title="CI" href="https://github.com/bszarlej/flame_worldgen/actions/workflows/ci.yaml"><img src="https://github.com/bszarlej/flame_worldgen/actions/workflows/ci.yaml/badge.svg"></a>
+<a title="Pub" href="https://pub.dev/packages/flame_worldgen" ><img src="https://img.shields.io/pub/v/flame_worldgen.svg?style=popout"></a>
+<a title="Pub Points" href="https://pub.dev/packages/flame_worldgen/score"><img src="https://img.shields.io/pub/points/flame_worldgen.svg?style=popout"></a>
+<a title="Pub Likes" href="https://pub.dev/packages/flame_worldgen/score"><img src="https://img.shields.io/pub/likes/flame_worldgen.svg?style=popout"></a>
+<a title="Pub Downloads" href="https://pub.dev/packages/flame_worldgen/score" ><img src="https://img.shields.io/pub/dm/flame_worldgen"></a>
 
-## Features
+## ✨ Features
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+-   📦 **Chunk-based world streaming**
+    -   Dynamically load/unload chunks around the camera or player.
+    -   Adjustable view distance and chunk cache for performance tuning.
+-   🌄 **Noise-driven terrain generation**
+    -   Powered by [fast_noise](https://pub.dev/packages/fast_noise).
+    -   Heightmaps per chunk for flexible tile selection.
+-   🎨 **Sprite selection system**
+    -   `StaticSpriteSelector` --- pick a tile based only on noise
+        value.
+    -   `AnimatedSpriteSelector` --- cycle through frames per tile.
+    -   `WeightedSpriteSelector` --- probabilistic sprite selection with
+        noise-based weights.
+-   🖼 **Batch rendering with Flame's `SpriteBatch`**
+    -   Efficient tile rendering using batched draw calls.
+-   🎬 **Tile animations**
+    -   `TileAnimationController` updates frame indices at a fixed
+        duration.
+    -   Integrates seamlessly with selectors.
+-   🛠 **Utility functions**
+    -   Convert between chunk, tile, and world coordinates.
 
-## Getting started
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+## 🚀 Usage
 
-## Usage
+### 1. Create a ChunkManager
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
-
-```dart
-const like = 'sample';
+``` dart
+final chunkManager = ChunkManager(
+  noise: PerlinFractalNoise( // Choose your noise generator
+    seed: seed,
+    frequency: 0.0005,
+    octaves: 5,
+    lacunarity: 2.0,
+  ),
+  chunkSize: Vector2i(16, 16),
+  tileSize: Vector2i(16, 16),
+  viewDistance: 4,
+);
 ```
 
-## Additional information
+### 2. Configure your TileLayers
 
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+``` dart
+final waterLayer = TileLayer(
+  chunkManager: chunkManager,
+  spriteBatch: SpriteBatch(images.fromCache('water.png')),
+  config: TileLayerConfig(
+    animationController: TileAnimationController(frameDuration: 0.3),
+    spriteSelector: AnimatedSpriteSelector((noise) {
+      // render animated water all over the map
+      return [
+          Rect.fromLTWH(0, 0, 16, 16), // 1. frame
+          Rect.fromLTWH(16, 0, 16, 16), // 2. frame
+          Rect.fromLTWH(32, 0, 16, 16), // 3. frame
+          Rect.fromLTWH(48, 0, 16, 16), // 4. frame
+        ];
+    }),
+  ),
+  priority: -0x80000000,
+);
+
+final groundLayer = TileLayer(
+  chunkManager: chunkManager,
+  spriteBatch: SpriteBatch(images.fromCache('grass.png')),
+  config: TileLayerConfig(
+    animationController: TileAnimationController(frameDuration: 0.3), // animation controller is needed to animate `WeightedSprite.multi` sprite 
+    spriteSelector: WeightedSpriteSelector(
+      options: [
+        WeightedSprite.single(
+          Rect.fromLTWH(16, 16, 16, 16),
+          weight: (noise) => 0.7, // 70% chance to get this tile
+        ),
+        WeightedSprite.single(
+          Rect.fromLTWH(0, 80, 16, 16),
+          weight: (noise) => 0.15, // 15% chance to get this tile
+        ),
+        WeightedSprite.multi([ // Animated tile
+          Rect.fromLTWH(32, 96, 16, 16),
+          Rect.fromLTWH(48, 96, 16, 16),
+          Rect.fromLTWH(64, 96, 16, 16),
+          Rect.fromLTWH(80, 96, 16, 16),
+        ], weight: (noise) => 0.15), // 15% chance to get this tile
+      ],
+      predicate: (noise) => noise > -0.08, // only render grass when if the noise value is bigger than -0.08
+    ),
+  ),
+  priority: -0x7FFFFFFF, // render the ground layer with the priority 1 higher than the water layer
+);
+
+// add the layers to the world
+world.add(groundLayer);
+world.add(waterLayer);
+```
+
+## 🧩 Sprite Selection Strategies
+
+### StaticSpriteSelector
+
+Selects a sprite based on noise only.
+
+``` dart
+StaticSpriteSelector((noise) => noise > 0.5 ? grassTile : waterTile);
+```
+
+### AnimatedSpriteSelector
+
+Cycles through frames per tile.
+
+``` dart
+AnimatedSpriteSelector((noise) =>
+  noise > 0.5 ? grassFrames : waterFrames
+);
+```
+
+### WeightedSpriteSelector
+
+Weighted random sprite choice.
+
+``` dart
+WeightedSpriteSelector(
+  predicate: (noise) => noise > 0.5,
+  options: [
+    WeightedSprite.single(grassTile, weight: (_) => 0.7),
+    WeightedSprite.single(flowerTile, weight: (_) => 0.3),
+  ],
+);
+```
+
+------------------------------------------------------------------------
+
+## 📏 Coordinate Conversion Helpers
+
+-   `chunkToWorldPosition(chunkCoords, chunkWorldSize)`\
+-   `worldToChunkPosition(worldPos, chunkWorldSize)`\
+-   `tileToWorldPosition(tileCoords, tileSize)`\
+-   `worldToTilePosition(worldPos, tileSize)`
+
+These make it easy to move between world, chunk, and tile coordinates.
+
+------------------------------------------------------------------------
+
+## 📡 Chunk Streaming
+
+-   The `ChunkManager` loads/unloads chunks around the camera or player.
+-   Emits `ChunkUpdateInfo` events on changes (loaded/unloaded chunks).
+-   Integrates with `TileLayer` to rebuild batches efficiently.
+
+------------------------------------------------------------------------
+
+## ⚡ Performance Notes
+
+-   SpriteBatch drastically reduces draw calls.
+-   Chunk caching avoids regenerating terrain unnecessarily.
+
+## Contributing
+
+Contributions and suggestions are welcome! Feel free to open issues or submit pull requests.

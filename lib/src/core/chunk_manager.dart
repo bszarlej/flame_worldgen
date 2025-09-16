@@ -7,31 +7,66 @@ import '../math/vector2i.dart';
 import '../utils/utils.dart';
 import 'chunk.dart';
 
+/// Contains information about chunks that have been loaded or unloaded
+/// during a single update.
 class ChunkUpdateInfo {
+  /// List of chunks that were loaded in this update.
   final List<Chunk> loadedChunks;
+
+  /// List of chunks that were unloaded in this update.
   final List<Chunk> unloadedChunks;
 
+  /// Creates a [ChunkUpdateInfo] instance.
+  ///
+  /// Both [loadedChunks] and [unloadedChunks] default to empty lists.
   const ChunkUpdateInfo({
     this.loadedChunks = const [],
     this.unloadedChunks = const [],
   });
 }
 
+/// Manages the loading, unloading, and caching of chunks for a procedural world.
+///
+/// Keeps track of which chunks are currently visible based on a "view distance"
+/// and can provide notifications when chunks are loaded or unloaded.
 class ChunkManager {
+  /// The noise generator used to create chunk height maps.
   final Noise2 noise;
+
+  /// The size of each chunk in tiles (width x height).
   final Vector2i chunkSize;
+
+  /// The size of each tile in pixels (width x height).
   final Vector2i tileSize;
+
+  /// Optional callback when a chunk is loaded.
   final void Function(Chunk chunk)? onChunkLoaded;
+
+  /// Optional callback when a chunk is unloaded.
   final void Function(Chunk chunk)? onChunkUnloaded;
+
+  /// Maximum number of chunks to cache in memory.
   int chunkCacheSize;
 
+  /// Currently loaded chunks mapped by their chunk coordinates.
   final Map<Vector2i, Chunk> _loadedChunks = {};
+
+  /// Cached chunks that are not currently loaded.
   final Map<Vector2i, Chunk> _cachedChunks = {};
+
+  /// Stream controller broadcasting chunk updates.
   final _chunkUpdateController = StreamController<ChunkUpdateInfo>.broadcast();
+
+  /// Precomputed offsets for determining which chunks fall within the view distance.
   late List<Vector2i> _diskOffsets;
+
   int _viewDistance;
   Vector2i? _previousChunkPosition;
 
+  /// Creates a new [ChunkManager].
+  ///
+  /// [chunkCacheSize] controls how many unloaded chunks are kept in memory.
+  /// [viewDistance] determines how far (in chunks) to load chunks around a center position.
   ChunkManager({
     required this.noise,
     required this.chunkSize,
@@ -49,24 +84,38 @@ class ChunkManager {
     _diskOffsets = _generateDiskOffsets(_viewDistance);
   }
 
+  /// The current view distance in chunks.
   int get viewDistance => _viewDistance;
 
+  /// Sets the view distance and updates internal offsets.
   set viewDistance(int value) {
     _viewDistance = value.clamp(0, double.infinity).toInt();
     _diskOffsets = _generateDiskOffsets(_viewDistance);
     _previousChunkPosition = null;
   }
 
+  /// Stream of chunk updates for listeners.
   Stream<ChunkUpdateInfo> get onChunkUpdate => _chunkUpdateController.stream;
+
+  /// The size of a chunk in world coordinates (pixels).
   Vector2i get chunkWorldSize =>
       Vector2i(chunkSize.x * tileSize.x, chunkSize.y * tileSize.y);
+
+  /// Currently loaded chunks mapped by chunk coordinates.
   Map<Vector2i, Chunk> get loadedChunks => _loadedChunks;
+
+  /// Number of chunks currently cached in memory but not loaded.
   int get totalCached => _cachedChunks.length;
 
+  /// Closes internal streams and cleans up resources.
   Future<void> dispose() async {
     await _chunkUpdateController.close();
   }
 
+  /// Updates which chunks are visible based on [centerPosition] in world space.
+  ///
+  /// Loads new chunks, caches old ones outside the view distance, and emits
+  /// a [ChunkUpdateInfo] with the changes.
   void updateVisibleChunks(Vector2 centerPosition) {
     final centerChunkPosition = Vector2i.fromVector2(
       worldToChunkPosition(centerPosition, chunkWorldSize),
@@ -80,7 +129,7 @@ class ChunkManager {
       final List<Chunk> newChunks = [];
       final List<Chunk> oldChunks = [];
 
-      // load new chunks
+      // Load new chunks
       for (final key in chunksToKeep) {
         if (!_loadedChunks.containsKey(key)) {
           Chunk chunk;
@@ -100,7 +149,7 @@ class ChunkManager {
         }
       }
 
-      //unload and cache old chunks
+      // Unload and cache old chunks
       for (final key in _loadedChunks.keys.toList()) {
         if (!chunksToKeep.contains(key)) {
           final chunk = _loadedChunks.remove(key);
@@ -123,6 +172,7 @@ class ChunkManager {
     }
   }
 
+  /// Returns all chunk coordinates within the load radius from [centerChunk].
   Set<Vector2i> _getChunksWithinLoadRadius(Vector2i centerChunk) {
     final Set<Vector2i> chunksToKeep = {};
     for (final offset in _diskOffsets) {
@@ -134,6 +184,9 @@ class ChunkManager {
     return chunksToKeep;
   }
 
+  /// Generates a sorted list of offsets representing a circular area of radius [radius].
+  ///
+  /// The offsets are sorted by distance from the origin (0,0).
   List<Vector2i> _generateDiskOffsets(int radius) {
     final offsets = <Vector2i>[];
     for (int x = -radius; x <= radius; x++) {

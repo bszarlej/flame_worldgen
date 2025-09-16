@@ -1,6 +1,6 @@
 name: flame_worldgen
-description: "A new Flutter package project."
-version: 0.0.1
+description: A procedural world generation toolkit for Flame, providing chunk-based tile management, animated and weighted sprites, and noise-driven terrain generation for 2D games.
+version: 1.0.0
 repository: https://github.com/bszarlej/flame_worldgen
 issue_tracker: https://github.com/bszarlej/flame_worldgen/issues
 topics:

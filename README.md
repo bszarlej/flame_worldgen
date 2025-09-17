@@ -1,5 +1,7 @@
 # flame_worldgen
 
+![Demo](assets/demo.gif)
+
 This package provides a lightweight, modular system for managing
 **procedurally generated tilemaps** in Flutter using the [Flame
 engine](https://flame-engine.org/).\

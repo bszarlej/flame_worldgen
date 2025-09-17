@@ -15,5 +15,6 @@ flutter create . --empty && flutter run
 ### Controls
 
 * `W`, `A`, `S`, `D` - Move the player
+* `Left Shift` – Increase player movement speed (boost)
 * `Numpad -`, `Numpad +` - Adjust view distance
 * Mouse Scroll - Zoom camera in/out

@@ -144,6 +144,8 @@ WeightedSpriteSelector(
   ],
 );
 ```
+> [!TIP]
+> For working example and usage, check out the  [example folder](example/).
 
 ------------------------------------------------------------------------
 

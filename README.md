@@ -23,10 +23,10 @@ generation**, and **sprite selectors** for flexible rendering.
     -   Heightmaps per chunk for flexible tile selection.
 -   🎨 **Sprite selection system**
     -   `StaticSpriteSelector` --- pick a tile based only on noise
-        value.
+        and/or position.
     -   `AnimatedSpriteSelector` --- cycle through frames per tile.
     -   `WeightedSpriteSelector` --- probabilistic sprite selection with
-        noise-based weights.
+        noise-, and position-based weights.
 -   🖼 **Batch rendering with Flame's `SpriteBatch`**
     -   Efficient tile rendering using batched draw calls.
 -   🎬 **Tile animations**
@@ -63,7 +63,7 @@ final waterLayer = TileLayer(
   spriteBatch: SpriteBatch(images.fromCache('water.png')),
   config: TileLayerConfig(
     animationController: TileAnimationController(frameDuration: 0.3),
-    spriteSelector: AnimatedSpriteSelector((noise) {
+    spriteSelector: AnimatedSpriteSelector((noise, _) {
       // render animated water all over the map
       return [
           Rect.fromLTWH(0, 0, 16, 16), // 1. frame
@@ -85,20 +85,20 @@ final groundLayer = TileLayer(
       options: [
         WeightedSprite.single(
           Rect.fromLTWH(16, 16, 16, 16),
-          weight: (noise) => 0.7, // 70% chance to get this tile
+          weight: (noise, _) => 0.7, // 70% chance to get this tile
         ),
         WeightedSprite.single(
           Rect.fromLTWH(0, 80, 16, 16),
-          weight: (noise) => 0.15, // 15% chance to get this tile
+          weight: (noise, _) => 0.15, // 15% chance to get this tile
         ),
         WeightedSprite.multi([ // Animated tile
           Rect.fromLTWH(32, 96, 16, 16),
           Rect.fromLTWH(48, 96, 16, 16),
           Rect.fromLTWH(64, 96, 16, 16),
           Rect.fromLTWH(80, 96, 16, 16),
-        ], weight: (noise) => 0.15), // 15% chance to get this tile
+        ], weight: (noise, _) => 0.15), // 15% chance to get this tile
       ],
-      predicate: (noise) => noise > -0.08, // only render grass when if the noise value is bigger than -0.08
+      predicate: (noise, _) => noise > -0.08, // only render grass when if the noise value is bigger than -0.08
     ),
   ),
   priority: -0x7FFFFFFF, // render the ground layer with the priority 1 higher than the water layer
@@ -113,10 +113,10 @@ world.add(waterLayer);
 
 ### StaticSpriteSelector
 
-Selects a sprite based on noise only.
+Selects a sprite based on noise and position only.
 
 ``` dart
-StaticSpriteSelector((noise) => noise > 0.5 ? grassTile : waterTile);
+StaticSpriteSelector((noise, _) => noise > 0.5 ? grassTile : waterTile);
 ```
 
 ### AnimatedSpriteSelector
@@ -124,7 +124,7 @@ StaticSpriteSelector((noise) => noise > 0.5 ? grassTile : waterTile);
 Cycles through frames per tile.
 
 ``` dart
-AnimatedSpriteSelector((noise) =>
+AnimatedSpriteSelector((noise, _) =>
   noise > 0.5 ? grassFrames : waterFrames
 );
 ```
@@ -135,10 +135,10 @@ Weighted random sprite choice.
 
 ``` dart
 WeightedSpriteSelector(
-  predicate: (noise) => noise > 0.5,
+  predicate: (noise, _) => noise > 0.5,
   options: [
-    WeightedSprite.single(grassTile, weight: (_) => 0.7),
-    WeightedSprite.single(flowerTile, weight: (_) => 0.3),
+    WeightedSprite.single(grassTile, weight: (_, _) => 0.7), // 70% probability
+    WeightedSprite.single(flowerTile, weight: (_, _) => 0.3), // 30% probability
   ],
 );
 ```

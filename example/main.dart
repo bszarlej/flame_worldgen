@@ -41,7 +41,7 @@ class FlameWorldgenGame extends FlameGame with HasKeyboardHandlerComponents {
       spriteBatch: SpriteBatch(images.fromCache('water.png')),
       config: TileLayerConfig(
         animationController: TileAnimationController(frameDuration: 0.3),
-        spriteSelector: AnimatedSpriteSelector((noise) {
+        spriteSelector: AnimatedSpriteSelector((noise, worldPos) {
           if (noise <= -0.08) {
             return [
               const Rect.fromLTWH(0, 0, 16, 16),
@@ -66,24 +66,24 @@ class FlameWorldgenGame extends FlameGame with HasKeyboardHandlerComponents {
           options: [
             WeightedSprite.single(
               const Rect.fromLTWH(16, 16, 16, 16),
-              weight: (noise) => noise > 0.0 ? 2 : 10,
+              weight: (noise, _) => noise > 0.0 ? 2 : 10,
             ),
             WeightedSprite.single(
               const Rect.fromLTWH(0, 80, 16, 16),
-              weight: (noise) => 1.5,
+              weight: (noise, _) => 1.5,
             ),
             WeightedSprite.single(
               const Rect.fromLTWH(16, 80, 16, 16),
-              weight: (noise) => 1.5,
+              weight: (noise, _) => 1.5,
             ),
             WeightedSprite.multi([
               const Rect.fromLTWH(32, 96, 16, 16),
               const Rect.fromLTWH(48, 96, 16, 16),
               const Rect.fromLTWH(64, 96, 16, 16),
               const Rect.fromLTWH(80, 96, 16, 16),
-            ], weight: (noise) => .1),
+            ], weight: (noise, _) => .1),
           ],
-          predicate: (noise) => noise > -.08,
+          predicate: (noise, worldPos) => noise > -.08,
         ),
       ),
       priority: -0x7FFFFFFF,

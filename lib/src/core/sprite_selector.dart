@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flame/image_composition.dart';
 import 'package:flutter/widgets.dart';
 
 import '../math/vector2i.dart';
@@ -19,7 +20,7 @@ abstract class SpriteSelector {
 
 /// Always returns a static sprite regardless of frame or world position.
 class StaticSpriteSelector implements SpriteSelector {
-  final Rect? Function(double noise) _selector;
+  final Rect? Function(double noise, Vector2i worldPos) _selector;
 
   /// Creates a new [StaticSpriteSelector].
   ///
@@ -27,14 +28,15 @@ class StaticSpriteSelector implements SpriteSelector {
   StaticSpriteSelector(this._selector);
 
   @override
-  Rect? select(double noise, int frame, Vector2i worldPos) => _selector(noise);
+  Rect? select(double noise, int frame, Vector2i worldPos) =>
+      _selector(noise, worldPos);
 }
 
 /// Selects a sprite based on a list of frames for animation.
 ///
 /// The frame returned is determined by `frame % frames.length`.
 class AnimatedSpriteSelector implements SpriteSelector {
-  final List<Rect>? Function(double noise) _frames;
+  final List<Rect>? Function(double noise, Vector2i worldPos) _frames;
 
   /// Creates a new [AnimatedSpriteSelector].
   ///
@@ -43,7 +45,7 @@ class AnimatedSpriteSelector implements SpriteSelector {
 
   @override
   Rect? select(double noise, int frame, Vector2i worldPos) {
-    final frames = _frames(noise);
+    final frames = _frames(noise, worldPos);
     return frames?.isEmpty != false ? null : frames![frame % frames.length];
   }
 }
@@ -57,7 +59,7 @@ class WeightedSpriteSelector implements SpriteSelector {
   final List<WeightedSprite> options;
 
   /// Predicate to determine whether a sprite should be selected for a given noise value.
-  final bool Function(double noise) predicate;
+  final bool Function(double noise, Vector2i worldPos) predicate;
 
   /// Creates a new [WeightedSpriteSelector].
   ///
@@ -70,22 +72,38 @@ class WeightedSpriteSelector implements SpriteSelector {
 
   @override
   Rect? select(double noise, int frame, Vector2i worldPos) {
-    if (!predicate(noise)) return null;
+    if (!predicate(noise, worldPos)) return null;
 
     final rand = Random(worldPos.hashCode);
-    final totalWeight = options.fold<double>(
-      0,
-      (sum, opt) => sum + opt.weight(noise),
-    );
-    double roll = rand.nextDouble() * totalWeight;
+    final len = options.length;
+    if (len == 0) return null;
 
-    for (final opt in options) {
-      final weight = opt.weight(noise);
-      if (roll < weight) return opt.frames[frame % opt.frames.length];
-      roll -= weight;
+    final weights = List<double>.filled(len, 0.0);
+    double totalWeight = 0.0;
+    for (var i = 0; i < len; i++) {
+      final w = options[i].weight(noise, worldPos);
+      weights[i] = w;
+      totalWeight += w;
     }
 
-    return options.first.frames[frame % options.first.frames.length];
+    if (totalWeight <= 0.0) {
+      final fallback = options.first;
+      return fallback.frames[frame % fallback.frames.length];
+    }
+
+    double roll = rand.nextDouble() * totalWeight;
+
+    for (var i = 0; i < len; i++) {
+      final w = weights[i];
+      if (roll < w) {
+        final opt = options[i];
+        return opt.frames[frame % opt.frames.length];
+      }
+      roll -= w;
+    }
+
+    final fallback = options.first;
+    return fallback.frames[frame % fallback.frames.length];
   }
 }
 
@@ -98,7 +116,7 @@ class WeightedSprite {
   final List<Rect> frames;
 
   /// Function returning the weight of this sprite for a given noise value.
-  final double Function(double noise) weight;
+  final double Function(double noise, Vector2i worldPos) weight;
 
   /// Creates a weighted sprite with a single frame.
   WeightedSprite.single(Rect rect, {required this.weight}) : frames = [rect];

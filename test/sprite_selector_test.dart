@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('StaticSpriteSelector', () {
     test('returns correct rect for given noise', () {
-      final selector = StaticSpriteSelector((noise) {
+      final selector = StaticSpriteSelector((noise, _) {
         if (noise > 0.5) {
           return const Rect.fromLTWH(0, 0, 16, 16);
         }
@@ -27,7 +27,7 @@ void main() {
         const Rect.fromLTWH(16, 0, 16, 16),
       ];
 
-      final selector = AnimatedSpriteSelector((_) => frames);
+      final selector = AnimatedSpriteSelector((_, _) => frames);
 
       // frame 0 → first rect
       expect(selector.select(0.5, 0, const Vector2i(0, 0)), frames[0]);
@@ -40,7 +40,7 @@ void main() {
     });
 
     test('returns null when no frames available', () {
-      final selector = AnimatedSpriteSelector((_) => []);
+      final selector = AnimatedSpriteSelector((_, _) => []);
       expect(selector.select(0.5, 0, const Vector2i(0, 0)), isNull);
     });
   });
@@ -50,17 +50,17 @@ void main() {
       final options = [
         WeightedSprite.single(
           const Rect.fromLTWH(0, 0, 16, 16),
-          weight: (_) => 0.7,
+          weight: (_, _) => 0.7,
         ),
         WeightedSprite.single(
           const Rect.fromLTWH(16, 0, 16, 16),
-          weight: (_) => 0.3,
+          weight: (_, _) => 0.3,
         ),
       ];
 
       final selector = WeightedSpriteSelector(
         options: options,
-        predicate: (_) => true,
+        predicate: (_, _) => true,
       );
 
       // Because Random(worldPos.hashCode) is seeded,
@@ -78,10 +78,10 @@ void main() {
         options: [
           WeightedSprite.single(
             const Rect.fromLTWH(0, 0, 16, 16),
-            weight: (_) => 1.0,
+            weight: (_, _) => 1.0,
           ),
         ],
-        predicate: (_) => false,
+        predicate: (_, _) => false,
       );
 
       expect(selector.select(0.5, 0, const Vector2i(0, 0)), isNull);
@@ -92,14 +92,14 @@ void main() {
         options: [
           WeightedSprite.single(
             const Rect.fromLTWH(0, 0, 16, 16),
-            weight: (noise) => noise > 0 ? 1.0 : 0.0,
+            weight: (noise, _) => noise > 0 ? 1.0 : 0.0,
           ),
           WeightedSprite.single(
             const Rect.fromLTWH(16, 0, 16, 16),
-            weight: (noise) => noise > 0 ? 0.0 : 1.0,
+            weight: (noise, _) => noise > 0 ? 0.0 : 1.0,
           ),
         ],
-        predicate: (_) => true,
+        predicate: (_, _) => true,
       );
 
       const rectPos = Vector2i(5, 5);

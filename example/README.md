@@ -11,3 +11,9 @@ to generate procedural game worlds with Flame.
 ```bash
 flutter create . --empty && flutter run
 ```
+
+### Controls
+
+* `W`, `A`, `S`, `D` - Move the player
+* `Numpad -`, `Numpad +` - Adjust view distance
+* Mouse Scroll - Zoom camera in/out

@@ -216,18 +216,8 @@ class FlameWorldgenExample extends FlameGame
   void _onChunkUnloaded(Chunk chunk) {
     final props = world.children.whereType<Prop>();
 
-    final chunkPosition = chunk.coords.toVector2()
-      ..multiply(chunk.chunkWorldSize.toVector2());
-
-    final chunkRect = Rect.fromLTWH(
-      chunkPosition.x.toDouble(),
-      chunkPosition.y.toDouble(),
-      chunk.chunkWorldSize.x.toDouble(),
-      chunk.chunkWorldSize.y.toDouble(),
-    );
-
     for (final prop in props) {
-      if (chunkRect.containsPoint(prop.position)) {
+      if (chunk.worldRect.containsPoint(prop.position)) {
         prop.removeFromParent();
       }
     }

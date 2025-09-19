@@ -9,20 +9,20 @@ import '../core/chunk_manager.dart';
 import '../core/sprite_selector.dart';
 import '../math/vector2i.dart';
 
-/// Signature for providing a transform for rendering a tile at [worldPos].
-typedef TileTransformProvider = RSTransform Function(Vector2i worldPos);
+/// Signature for providing a transform for rendering a tile at [worldPosition].
+typedef TileTransformProvider = RSTransform Function(Vector2 worldPosition);
 
 /// Default transform provider.
 ///
 /// Places each tile at its world position with no scaling or rotation.
-RSTransform _defaultTransformProvider(Vector2i pos) {
+RSTransform _defaultTransformProvider(Vector2 worldPosition) {
   return RSTransform.fromComponents(
     rotation: 0,
     scale: 1.0,
     anchorX: 0,
     anchorY: 0,
-    translateX: pos.x.toDouble(),
-    translateY: pos.y.toDouble(),
+    translateX: worldPosition.x,
+    translateY: worldPosition.y,
   );
 }
 
@@ -108,7 +108,7 @@ class TileLayer extends Component with HasGameReference {
   /// Defaults to the camera viewfinder position.
   final Vector2 Function()? centerPositionProvider;
 
-  /// Maps world positions to sprite batch indices.
+  /// Maps tile coordinates to sprite batch indices.
   final Map<Vector2i, int> batchIndices = {};
 
   /// Stores noise values per sprite batch index (used for animation updates).
@@ -169,8 +169,8 @@ class TileLayer extends Component with HasGameReference {
     for (final chunk in info.unloadedChunks) {
       for (int row = 0; row < chunk.size.y; row++) {
         for (int col = 0; col < chunk.size.x; col++) {
-          final worldPos = chunk.getTileWorldPosition(col, row);
-          final index = batchIndices.remove(worldPos);
+          final coords = chunk.getGlobalTileCoordinates(col, row);
+          final index = batchIndices.remove(coords);
           if (index != null) {
             recycledIndices.add(index);
             _tileNoiseValues.remove(index);
@@ -205,16 +205,23 @@ class TileLayer extends Component with HasGameReference {
   void _processChunk(Chunk chunk, List<int> recycledIndices) {
     for (int row = 0; row < chunk.size.y; row++) {
       for (int col = 0; col < chunk.size.x; col++) {
-        final worldPos = chunk.getTileWorldPosition(col, row);
+        final coords = chunk.getGlobalTileCoordinates(col, row);
+        final worldPosition = chunk.getTileWorldPosition(col, row);
         final noise = chunk.getNoise(col, row);
         final source = config.spriteSelector.select(
           noise,
           config.animationController?.currentFrame ?? 0,
-          worldPos,
+          coords,
         );
 
         if (source != null) {
-          _addOrUpdateTile(worldPos, source, recycledIndices, noise);
+          _addOrUpdateTile(
+            coords,
+            worldPosition,
+            source,
+            recycledIndices,
+            noise,
+          );
         }
       }
     }
@@ -222,12 +229,13 @@ class TileLayer extends Component with HasGameReference {
 
   /// Adds a new tile or updates an existing tile at [worldPos].
   void _addOrUpdateTile(
-    Vector2i worldPos,
+    Vector2i globalCoords,
+    Vector2 worldPosition,
     Rect source,
     List<int> recycledIndices,
     double noise,
   ) {
-    final transform = config.transformProvider(worldPos);
+    final transform = config.transformProvider(worldPosition);
 
     int index;
     if (recycledIndices.isNotEmpty) {
@@ -238,7 +246,7 @@ class TileLayer extends Component with HasGameReference {
       index = _currentIndex++;
     }
 
-    batchIndices[worldPos] = index;
+    batchIndices[globalCoords] = index;
     if (config.animationController != null) {
       _tileNoiseValues[index] = noise;
     }

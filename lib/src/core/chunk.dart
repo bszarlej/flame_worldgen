@@ -72,7 +72,7 @@ class Chunk {
   List<double> get heightMap => UnmodifiableListView(_heightMap);
 
   /// Converts local tile coordinates ([col], [row]) to global tile coordinates.
-  Vector2i getGlobalTileCoords(int col, int row) {
+  Vector2i getGlobalTileCoordinates(int col, int row) {
     final worldPos = getTileWorldPosition(col, row);
     return Vector2i(
       (worldPos.x / tileSize.x).floor(),
@@ -87,10 +87,10 @@ class Chunk {
   }
 
   /// Returns the world position (in pixels) for the tile at ([col], [row]).
-  Vector2i getTileWorldPosition(int col, int row) {
-    return Vector2i(
-      coords.x * size.x * tileSize.x + col * tileSize.x,
-      coords.y * size.y * tileSize.y + row * tileSize.y,
+  Vector2 getTileWorldPosition(int col, int row) {
+    return Vector2(
+      coords.x * size.x * tileSize.x + col * tileSize.x.toDouble(),
+      coords.y * size.y * tileSize.y + row * tileSize.y.toDouble(),
     );
   }
 
@@ -106,7 +106,7 @@ class Chunk {
   void _generateHeightMap() {
     for (int col = 0; col < size.x; col++) {
       for (int row = 0; row < size.y; row++) {
-        final globalPos = getGlobalTileCoords(col, row);
+        final globalPos = getGlobalTileCoordinates(col, row);
         final index = row * size.x + col;
         _heightMap[index] = noise.getNoise2(
           globalPos.x.toDouble(),

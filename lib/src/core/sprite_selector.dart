@@ -1,7 +1,6 @@
 import 'dart:math';
 
 import 'package:flame/image_composition.dart';
-import 'package:flutter/widgets.dart';
 
 import '../math/vector2i.dart';
 
@@ -14,13 +13,13 @@ abstract class SpriteSelector {
   ///
   /// - [noise] is a procedural value for this tile, typically from Perlin or Simplex noise.
   /// - [frame] is the current animation frame.
-  /// - [worldPos] is the tile's position in the world (in tile coordinates).
-  Rect? select(double noise, int frame, Vector2i worldPos);
+  /// - [globalCoordinates] is the tile's position in tile coordinates.
+  Rect? select(double noise, int frame, Vector2i globalCoordinates);
 }
 
 /// Always returns a static sprite regardless of frame or world position.
 class StaticSpriteSelector implements SpriteSelector {
-  final Rect? Function(double noise, Vector2i worldPos) _selector;
+  final Rect? Function(double noise, Vector2i globalCoordinates) _selector;
 
   /// Creates a new [StaticSpriteSelector].
   ///
@@ -28,15 +27,15 @@ class StaticSpriteSelector implements SpriteSelector {
   StaticSpriteSelector(this._selector);
 
   @override
-  Rect? select(double noise, int frame, Vector2i worldPos) =>
-      _selector(noise, worldPos);
+  Rect? select(double noise, int frame, Vector2i globalCoordinates) =>
+      _selector(noise, globalCoordinates);
 }
 
 /// Selects a sprite based on a list of frames for animation.
 ///
 /// The frame returned is determined by `frame % frames.length`.
 class AnimatedSpriteSelector implements SpriteSelector {
-  final List<Rect>? Function(double noise, Vector2i worldPos) _frames;
+  final List<Rect>? Function(double noise, Vector2i globalCoordinates) _frames;
 
   /// Creates a new [AnimatedSpriteSelector].
   ///
@@ -44,8 +43,8 @@ class AnimatedSpriteSelector implements SpriteSelector {
   AnimatedSpriteSelector(this._frames);
 
   @override
-  Rect? select(double noise, int frame, Vector2i worldPos) {
-    final frames = _frames(noise, worldPos);
+  Rect? select(double noise, int frame, Vector2i globalCoordinates) {
+    final frames = _frames(noise, globalCoordinates);
     return frames?.isEmpty != false ? null : frames![frame % frames.length];
   }
 }
@@ -59,7 +58,7 @@ class WeightedSpriteSelector implements SpriteSelector {
   final List<WeightedSprite> options;
 
   /// Predicate to determine whether a sprite should be selected for a given noise value.
-  final bool Function(double noise, Vector2i worldPos) predicate;
+  final bool Function(double noise, Vector2i globalCoordinates) predicate;
 
   /// Creates a new [WeightedSpriteSelector].
   ///
@@ -71,17 +70,17 @@ class WeightedSpriteSelector implements SpriteSelector {
       );
 
   @override
-  Rect? select(double noise, int frame, Vector2i worldPos) {
-    if (!predicate(noise, worldPos)) return null;
+  Rect? select(double noise, int frame, Vector2i globalCoordinates) {
+    if (!predicate(noise, globalCoordinates)) return null;
 
-    final rand = Random(worldPos.hashCode);
+    final rand = Random(globalCoordinates.hashCode);
     final len = options.length;
     if (len == 0) return null;
 
     final weights = List<double>.filled(len, 0.0);
     double totalWeight = 0.0;
     for (var i = 0; i < len; i++) {
-      final w = options[i].weight(noise, worldPos);
+      final w = options[i].weight(noise, globalCoordinates);
       weights[i] = w;
       totalWeight += w;
     }
@@ -116,7 +115,7 @@ class WeightedSprite {
   final List<Rect> frames;
 
   /// Function returning the weight of this sprite for a given noise value.
-  final double Function(double noise, Vector2i worldPos) weight;
+  final double Function(double noise, Vector2i globalCoordinates) weight;
 
   /// Creates a weighted sprite with a single frame.
   WeightedSprite.single(Rect rect, {required this.weight}) : frames = [rect];

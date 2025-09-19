@@ -181,7 +181,7 @@ class TileLayer extends Component with HasGameReference {
 
     // Add new chunks.
     for (final chunk in info.loadedChunks) {
-      processChunk(chunk, recycledIndices);
+      _processChunk(chunk, recycledIndices);
     }
 
     if (recycledIndices.isNotEmpty) {
@@ -197,12 +197,12 @@ class TileLayer extends Component with HasGameReference {
     _currentIndex = 0;
 
     for (final chunk in chunkManager.loadedChunks.values) {
-      processChunk(chunk, []);
+      _processChunk(chunk, []);
     }
   }
 
   /// Processes a chunk, adding its tiles to the sprite batch.
-  void processChunk(Chunk chunk, List<int> recycledIndices) {
+  void _processChunk(Chunk chunk, List<int> recycledIndices) {
     for (int row = 0; row < chunk.size.y; row++) {
       for (int col = 0; col < chunk.size.x; col++) {
         final worldPos = chunk.getTileWorldPosition(col, row);
@@ -214,14 +214,14 @@ class TileLayer extends Component with HasGameReference {
         );
 
         if (source != null) {
-          addOrUpdateTile(worldPos, source, recycledIndices, noise);
+          _addOrUpdateTile(worldPos, source, recycledIndices, noise);
         }
       }
     }
   }
 
   /// Adds a new tile or updates an existing tile at [worldPos].
-  void addOrUpdateTile(
+  void _addOrUpdateTile(
     Vector2i worldPos,
     Rect source,
     List<int> recycledIndices,

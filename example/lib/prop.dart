@@ -34,6 +34,9 @@ enum PropType {
     PropType.fruitBush => 0.01,
     PropType.sunFlower => 0.05,
   };
+
+  WeightedSprite toWeightedSprite() =>
+      WeightedSprite.single(srcRect, weight: calculateWeight);
 }
 
 class Prop extends PositionComponent with HasGameReference, YPriority {

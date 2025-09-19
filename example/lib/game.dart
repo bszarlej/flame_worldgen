@@ -162,14 +162,7 @@ class FlameWorldgenExample extends FlameGame
     camera.viewport.add(minimap);
 
     propSelector = WeightedSpriteSelector(
-      options: PropType.values
-          .map(
-            (type) => WeightedSprite.single(
-              type.srcRect,
-              weight: type.calculateWeight,
-            ),
-          )
-          .toList(),
+      options: PropType.values.map((e) => e.toWeightedSprite()).toList(),
       predicate: (noise, worldPos) {
         final rng = Random(worldPos.hashCode ^ seed);
         return noise > -0.07 && rng.nextDouble() < 0.25;
@@ -198,8 +191,8 @@ class FlameWorldgenExample extends FlameGame
   }
 
   void _onChunkLoaded(Chunk chunk) {
-    for (int col = 0; col < chunk.chunkSize.y; col++) {
-      for (int row = 0; row < chunk.chunkSize.x; row++) {
+    for (int col = 0; col < chunk.size.y; col++) {
+      for (int row = 0; row < chunk.size.x; row++) {
         final noise = chunk.getNoise(col, row);
         final pos = chunk.getTileWorldPosition(col, row);
         final tileSize = chunk.tileSize.toVector2();
@@ -223,7 +216,7 @@ class FlameWorldgenExample extends FlameGame
   void _onChunkUnloaded(Chunk chunk) {
     final props = world.children.whereType<Prop>();
 
-    final chunkPosition = chunk.chunkCoords.toVector2()
+    final chunkPosition = chunk.coords.toVector2()
       ..multiply(chunk.chunkWorldSize.toVector2());
 
     final chunkRect = Rect.fromLTWH(

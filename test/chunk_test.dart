@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flame/components.dart';
@@ -47,6 +48,37 @@ void main() {
       expect(chunk.worldPosition, equals(Vector2(384, 448)));
       expect(chunk.worldSize, equals(Vector2(128, 64)));
       expect(chunk.worldRect, equals(const Rect.fromLTWH(384, 448, 128, 64)));
+    });
+
+    test('getRandomPosition returns positions within chunk bounds', () {
+      final chunk = Chunk(
+        noise: noise,
+        coords: const Vector2i(0, 0),
+        size: const Vector2i(16, 16),
+        tileSize: const Vector2i(16, 16),
+      );
+
+      final rng = Random(123);
+
+      for (var i = 0; i < 5000; i++) {
+        final pos = chunk.getRandomPosition(rng);
+
+        expect(
+          pos.x,
+          inInclusiveRange(
+            chunk.worldPosition.x,
+            chunk.worldPosition.x + chunk.worldSize.x,
+          ),
+        );
+
+        expect(
+          pos.y,
+          inInclusiveRange(
+            chunk.worldPosition.y,
+            chunk.worldPosition.y + chunk.worldSize.y,
+          ),
+        );
+      }
     });
   });
 }

@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:math';
 
 import 'package:fast_noise/fast_noise.dart';
 import 'package:flame/extensions.dart';
@@ -90,6 +91,14 @@ class Chunk {
     return Vector2i(
       coords.x * size.x * tileSize.x + col * tileSize.x,
       coords.y * size.y * tileSize.y + row * tileSize.y,
+    );
+  }
+
+  Vector2 getRandomPosition([Random? rng]) {
+    final r = rng ?? Random();
+    return Vector2(
+      r.nextDouble() * worldSize.x + worldPosition.x,
+      r.nextDouble() * worldSize.y + worldPosition.y,
     );
   }
 

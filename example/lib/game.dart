@@ -197,9 +197,10 @@ class FlameWorldgenExample extends FlameGame
         final pos = chunk.getTileWorldPosition(col, row);
         final tileSize = chunk.tileSize.toVector2();
         final rng = Random(pos.hashCode ^ seed);
-        final randomOffset = Vector2.random(
-          rng,
-        ).scaled(tileSize.x > tileSize.y ? tileSize.x : tileSize.y);
+        final randomOffset = Vector2(
+          rng.nextDouble() * tileSize.x,
+          rng.nextDouble() * tileSize.y,
+        );
         final propRect = propSelector.select(noise, 0, pos);
         if (propRect != null) {
           world.add(

@@ -1,3 +1,6 @@
+import 'dart:ui';
+
+import 'package:flame/components.dart';
 import 'package:flame_worldgen/flame_worldgen.dart';
 import 'package:test/test.dart';
 
@@ -31,6 +34,19 @@ void main() {
 
       final global = chunk.getGlobalTileCoords(1, 1);
       expect(global, equals(const Vector2i(3, 3)));
+    });
+
+    test('correctly calculates worldSize, worldPosition and worldRect', () {
+      final chunk = Chunk(
+        noise: noise,
+        coords: const Vector2i(3, 7),
+        size: const Vector2i(8, 4),
+        tileSize: const Vector2i(16, 16),
+      );
+
+      expect(chunk.worldPosition, equals(Vector2(384, 448)));
+      expect(chunk.worldSize, equals(Vector2(128, 64)));
+      expect(chunk.worldRect, equals(const Rect.fromLTWH(384, 448, 128, 64)));
     });
   });
 }

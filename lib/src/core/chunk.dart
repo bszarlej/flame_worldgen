@@ -106,7 +106,7 @@ class Chunk {
   void _generateHeightMap() {
     for (int col = 0; col < size.x; col++) {
       for (int row = 0; row < size.y; row++) {
-        final globalPos = getTileWorldPosition(col, row);
+        final globalPos = getGlobalTileCoords(col, row);
         final index = row * size.x + col;
         _heightMap[index] = noise.getNoise2(
           globalPos.x.toDouble(),

@@ -94,6 +94,7 @@ class Chunk {
     );
   }
 
+  /// Returns a random position within the bounds of this chunk.
   Vector2 getRandomPosition([Random? rng]) {
     final r = rng ?? Random();
     return Vector2(

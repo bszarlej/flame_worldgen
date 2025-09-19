@@ -72,7 +72,6 @@ class FlameWorldgenExample extends FlameGame
       chunkManager: chunkManager,
       spriteBatch: SpriteBatch(images.fromCache('grass.png')),
       config: TileLayerConfig(
-        animationController: TileAnimationController(frameDuration: 0.3),
         spriteSelector: WeightedSpriteSelector(
           options: [
             WeightedSprite.single(

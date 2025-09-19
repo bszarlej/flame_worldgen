@@ -8,8 +8,8 @@ void main() {
     test('generates consistent height map', () {
       final chunk = Chunk(
         noise: noise,
-        chunkCoords: const Vector2i(0, 0),
-        chunkSize: const Vector2i(4, 4),
+        coords: const Vector2i(0, 0),
+        size: const Vector2i(4, 4),
         tileSize: const Vector2i(1, 1),
       );
 
@@ -21,8 +21,8 @@ void main() {
     test('returns correct world and global tile coordinates', () {
       final chunk = Chunk(
         noise: noise,
-        chunkCoords: const Vector2i(1, 1),
-        chunkSize: const Vector2i(2, 2),
+        coords: const Vector2i(1, 1),
+        size: const Vector2i(2, 2),
         tileSize: const Vector2i(16, 16),
       );
 

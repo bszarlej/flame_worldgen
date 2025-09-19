@@ -167,8 +167,8 @@ class TileLayer extends Component with HasGameReference {
 
     // Remove unloaded chunks and recycle their indices.
     for (final chunk in info.unloadedChunks) {
-      for (int row = 0; row < chunk.chunkSize.y; row++) {
-        for (int col = 0; col < chunk.chunkSize.x; col++) {
+      for (int row = 0; row < chunk.size.y; row++) {
+        for (int col = 0; col < chunk.size.x; col++) {
           final worldPos = chunk.getTileWorldPosition(col, row);
           final index = batchIndices.remove(worldPos);
           if (index != null) {
@@ -203,8 +203,8 @@ class TileLayer extends Component with HasGameReference {
 
   /// Processes a chunk, adding its tiles to the sprite batch.
   void processChunk(Chunk chunk, List<int> recycledIndices) {
-    for (int row = 0; row < chunk.chunkSize.y; row++) {
-      for (int col = 0; col < chunk.chunkSize.x; col++) {
+    for (int row = 0; row < chunk.size.y; row++) {
+      for (int col = 0; col < chunk.size.x; col++) {
         final worldPos = chunk.getTileWorldPosition(col, row);
         final noise = chunk.getNoise(col, row);
         final source = config.spriteSelector.select(

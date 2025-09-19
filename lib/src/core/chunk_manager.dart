@@ -138,8 +138,8 @@ class ChunkManager {
           } else {
             chunk = Chunk(
               noise: noise,
-              chunkCoords: key,
-              chunkSize: chunkSize,
+              coords: key,
+              size: chunkSize,
               tileSize: tileSize,
             );
           }

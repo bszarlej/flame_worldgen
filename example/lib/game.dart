@@ -36,9 +36,9 @@ class FlameWorldgenExample extends FlameGame
     chunkManager = ChunkManager(
       noise: PerlinFractalNoise(
         seed: seed,
-        frequency: 0.0005,
+        frequency: 0.005,
         octaves: 5,
-        lacunarity: 2.0,
+        lacunarity: 1.5,
       ),
       chunkSize: const Vector2i(16, 16),
       tileSize: const Vector2i(16, 16),

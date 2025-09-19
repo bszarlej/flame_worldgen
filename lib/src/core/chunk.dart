@@ -1,4 +1,7 @@
+import 'dart:collection';
+
 import 'package:fast_noise/fast_noise.dart';
+import 'package:flame/extensions.dart';
 
 import '../math/vector2i.dart';
 
@@ -22,6 +25,16 @@ class Chunk {
   /// The size of a single tile in pixels (width x height).
   final Vector2i tileSize;
 
+  /// The size of the chunk in pixel units.
+  late final Vector2 worldSize;
+
+  /// The position of the chunk in the world coordinate system (pixels)
+  late final Vector2 worldPosition;
+
+  /// The [Rect] of this chunk constructed from it's position and size
+  /// in the world coordinate system (pixels)
+  late final Rect worldRect;
+
   /// The height map for all tiles in this chunk.
   ///
   /// Stored as a flat list in row-major order.
@@ -40,15 +53,22 @@ class Chunk {
   }) : assert(size.x > 0 && size.y > 0, 'Chunk size must be positive'),
        assert(tileSize.x > 0 && tileSize.y > 0, 'Tile size must be positive'),
        _heightMap = List.filled(size.x * size.y, 0, growable: false) {
+    worldSize = Vector2(
+      size.x * tileSize.x.toDouble(),
+      size.y * tileSize.y.toDouble(),
+    );
+    worldPosition = Vector2(worldSize.x * coords.x, worldSize.y * coords.y);
+    worldRect = Rect.fromLTWH(
+      worldPosition.x,
+      worldPosition.y,
+      worldSize.x,
+      worldSize.y,
+    );
     _generateHeightMap();
   }
 
-  /// The total size of this chunk in world coordinates (pixels).
-  Vector2i get chunkWorldSize =>
-      Vector2i(size.x * tileSize.x, size.y * tileSize.y);
-
   /// Returns the height map for this chunk.
-  List<double> get heightMap => _heightMap;
+  List<double> get heightMap => UnmodifiableListView(_heightMap);
 
   /// Converts local tile coordinates ([col], [row]) to global tile coordinates.
   Vector2i getGlobalTileCoords(int col, int row) {

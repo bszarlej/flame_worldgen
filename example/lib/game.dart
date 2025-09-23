@@ -47,7 +47,7 @@ class FlameWorldgenExample extends FlameGame
       onChunkUnloaded: _onChunkUnloaded,
     );
 
-    final waterLayer = TileLayer(
+    final waterLayer = TileLayerComponent(
       chunkManager: chunkManager,
       spriteBatch: SpriteBatch(images.fromCache('water.png')),
       config: TileLayerConfig(
@@ -68,7 +68,7 @@ class FlameWorldgenExample extends FlameGame
     );
     world.add(waterLayer);
 
-    final groundLayer = TileLayer(
+    final groundLayer = TileLayerComponent(
       chunkManager: chunkManager,
       spriteBatch: SpriteBatch(images.fromCache('grass.png')),
       config: TileLayerConfig(

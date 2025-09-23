@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flame/components.dart';
 import 'package:flame/sprite.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import '../core/chunk.dart';
 import '../core/chunk_manager.dart';
@@ -263,6 +263,27 @@ class TileLayerComponent extends Component with HasGameReference {
       if (source != null) {
         spriteBatch.replace(index, source: source);
       }
+    }
+  }
+
+  @override
+  void renderDebugMode(Canvas canvas) {
+    super.renderDebugMode(canvas);
+
+    for (final transform in spriteBatch.transforms) {
+      final tx = transform.tx;
+      final ty = transform.ty;
+      final rect = Rect.fromLTWH(tx, ty, 16, 16);
+      canvas.drawRect(rect, debugPaint);
+    }
+
+    final chunkPaint = Paint()
+      ..color = Colors.yellow
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+
+    for (final chunk in chunkManager.loadedChunks.values) {
+      canvas.drawRect(chunk.worldRect, chunkPaint);
     }
   }
 }

@@ -60,7 +60,7 @@ final chunkManager = ChunkManager(
 ### 2. Configure your TileLayers
 
 ``` dart
-final waterLayer = TileLayer(
+final waterLayer = TileLayerComponent(
   chunkManager: chunkManager,
   spriteBatch: SpriteBatch(images.fromCache('water.png')),
   config: TileLayerConfig(
@@ -78,7 +78,7 @@ final waterLayer = TileLayer(
   priority: -0x80000000,
 );
 
-final groundLayer = TileLayer(
+final groundLayer = TileLayerComponent(
   chunkManager: chunkManager,
   spriteBatch: SpriteBatch(images.fromCache('grass.png')),
   config: TileLayerConfig(
@@ -164,7 +164,7 @@ These make it easy to move between world, chunk, and tile coordinates.
 
 -   The `ChunkManager` loads/unloads chunks around the camera or player.
 -   Emits `ChunkUpdateInfo` events on changes (loaded/unloaded chunks).
--   Integrates with `TileLayer` to rebuild batches efficiently.
+-   Integrates with `TileLayerComponent` to rebuild batches efficiently.
 
 ------------------------------------------------------------------------
 

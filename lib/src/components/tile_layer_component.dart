@@ -62,7 +62,7 @@ class TileAnimationController {
   }
 }
 
-/// Configuration for a [TileLayer].
+/// Configuration for a [TileLayerComponent].
 ///
 /// Defines how tiles are selected, transformed, animated, and rendered.
 class TileLayerConfig {
@@ -93,7 +93,7 @@ class TileLayerConfig {
 /// Tiles are generated from chunks managed by [ChunkManager].
 /// The layer automatically updates visible chunks based on the camera
 /// or a custom [centerPositionProvider].
-class TileLayer extends Component with HasGameReference {
+class TileLayerComponent extends Component with HasGameReference {
   /// Provides chunk data for this layer.
   final ChunkManager chunkManager;
 
@@ -117,7 +117,7 @@ class TileLayer extends Component with HasGameReference {
   int _currentIndex = 0;
   late final StreamSubscription<ChunkUpdateInfo> _chunkUpdateSubscription;
 
-  TileLayer({
+  TileLayerComponent({
     required this.chunkManager,
     required this.spriteBatch,
     required this.config,

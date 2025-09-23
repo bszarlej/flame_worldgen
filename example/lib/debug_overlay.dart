@@ -28,7 +28,7 @@ class DebugOverlay extends TextComponent
       chunkManager.chunkWorldSize,
     );
     final tilePos = worldToTilePosition(playerPosition, chunkManager.tileSize);
-    final tileLayers = game.world.children.whereType<TileLayer>();
+    final tileLayers = game.world.children.whereType<TileLayerComponent>();
     final totalTiles = tileLayers.fold(
       0,
       (prev, layer) => prev + layer.spriteBatch.sources.length,

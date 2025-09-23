@@ -24,7 +24,8 @@ class FlameWorldgenExample extends FlameGame
 
   late final int seed;
 
-  late final WeightedSpriteSelector propSelector;
+  late final WeightedSpriteSelector
+      propSelector; // This will be used to select props based on noise
 
   @override
   FutureOr<void> onLoad() async {
@@ -72,11 +73,14 @@ class FlameWorldgenExample extends FlameGame
       chunkManager: chunkManager,
       spriteBatch: SpriteBatch(images.fromCache('grass.png')),
       config: TileLayerConfig(
+        // Uncomment the line below if using WeightedSprite.multi for animated tiles
+        // animationController: TileAnimationController(frameDuration: 0.3),
         spriteSelector: WeightedSpriteSelector(
           options: [
             WeightedSprite.single(
               const Rect.fromLTWH(16, 16, 16, 16),
-              weight: (noise, _) => noise > 0.0 ? 2 : 10,
+              weight: (noise, _) =>
+                  noise > 0.1 ? 2 : 10, // More likely on higher ground
             ),
             WeightedSprite.single(
               const Rect.fromLTWH(0, 80, 16, 16),
@@ -163,8 +167,11 @@ class FlameWorldgenExample extends FlameGame
     propSelector = WeightedSpriteSelector(
       options: PropType.values.map((e) => e.toWeightedSprite()).toList(),
       predicate: (noise, worldPos) {
-        final rng = Random(worldPos.hashCode ^ seed);
-        return noise > -0.07 && rng.nextDouble() < 0.25;
+        final rng =
+            Random(worldPos.hashCode ^ seed); // Seeded RNG for consistency
+        return noise > -0.07 &&
+            rng.nextDouble() <
+                0.25; // If the noise is suitable there is a 25% chance to spawn a prop
       },
     );
   }
@@ -196,12 +203,19 @@ class FlameWorldgenExample extends FlameGame
         final coords = chunk.getGlobalTileCoordinates(col, row);
         final pos = chunk.getTileWorldPosition(col, row);
         final tileSize = chunk.tileSize.toVector2();
-        final rng = Random(pos.hashCode ^ seed);
+        final rng = Random(pos.hashCode ^ seed); // Seeded RNG for consistency
+
+        // Random offset within the tile
         final randomOffset = Vector2(
           rng.nextDouble() * tileSize.x,
           rng.nextDouble() * tileSize.y,
         );
-        final propRect = propSelector.select(noise, 0, coords);
+
+        final propRect = propSelector.select(
+          noise,
+          0, // frame is 0 since props are static
+          coords,
+        );
         if (propRect != null) {
           world.add(
             Prop(
@@ -218,6 +232,7 @@ class FlameWorldgenExample extends FlameGame
     final props = world.children.whereType<Prop>();
 
     for (final prop in props) {
+      // Removes props that are within the unloaded chunk
       if (chunk.worldRect.containsPoint(prop.position)) {
         prop.removeFromParent();
       }

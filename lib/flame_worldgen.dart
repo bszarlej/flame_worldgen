@@ -1,6 +1,6 @@
 export 'package:fast_noise/fast_noise.dart';
 
-export 'src/components/tile_layer.dart';
+export 'src/components/tile_layer_component.dart';
 export 'src/core/chunk.dart';
 export 'src/core/chunk_manager.dart';
 export 'src/core/sprite_selector.dart';

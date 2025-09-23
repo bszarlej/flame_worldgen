@@ -80,7 +80,7 @@ class FlameWorldgenExample extends FlameGame
             WeightedSprite.single(
               const Rect.fromLTWH(16, 16, 16, 16),
               weight: (noise, _) =>
-                  noise > 0.1 ? 2 : 10, // More likely on higher ground
+                  noise > 0.1 ? 2 : 10, // Less likely on higher ground
             ),
             WeightedSprite.single(
               const Rect.fromLTWH(0, 80, 16, 16),

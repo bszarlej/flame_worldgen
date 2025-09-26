@@ -17,8 +17,8 @@ void main() {
         tileSize: const Vector2i(1, 1),
       );
 
-      expect(chunk.heightMap.length, equals(16));
-      final value = chunk.getNoise(2, 3);
+      expect(chunk.tiles.length, equals(16));
+      final value = chunk.getTileAt(const Vector2i(2, 3)).noise;
       expect(value, isA<double>());
     });
 
@@ -30,10 +30,10 @@ void main() {
         tileSize: const Vector2i(16, 16),
       );
 
-      final worldPos = chunk.getTileWorldPosition(1, 1);
+      final worldPos = chunk.getTileAt(const Vector2i(1, 1)).position;
       expect(worldPos, equals(Vector2(48, 48)));
 
-      final global = chunk.getGlobalTileCoordinates(1, 1);
+      final global = chunk.getTileAt(const Vector2i(1, 1)).globalCoords;
       expect(global, equals(const Vector2i(3, 3)));
     });
 

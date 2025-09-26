@@ -197,33 +197,21 @@ class FlameWorldgenExample extends FlameGame
   }
 
   void _onChunkLoaded(Chunk chunk) {
-    for (int col = 0; col < chunk.size.y; col++) {
-      for (int row = 0; row < chunk.size.x; row++) {
-        final noise = chunk.getNoise(col, row);
-        final coords = chunk.getGlobalTileCoordinates(col, row);
-        final pos = chunk.getTileWorldPosition(col, row);
-        final tileSize = chunk.tileSize.toVector2();
-        final rng = Random(pos.hashCode ^ seed); // Seeded RNG for consistency
-
-        // Random offset within the tile
-        final randomOffset = Vector2(
-          rng.nextDouble() * tileSize.x,
-          rng.nextDouble() * tileSize.y,
+    for (final tile in chunk.tiles) {
+      final rng = Random(
+          tile.globalCoords.hashCode ^ seed); // Seeded RNG for consistency
+      final propRect = propSelector.select(
+        tile.noise,
+        0, // frame is 0 since props are static
+        tile.globalCoords,
+      );
+      if (propRect != null) {
+        world.add(
+          Prop(
+            type: PropType.fromRect(propRect),
+            position: tile.getRandomPosition(rng),
+          ),
         );
-
-        final propRect = propSelector.select(
-          noise,
-          0, // frame is 0 since props are static
-          coords,
-        );
-        if (propRect != null) {
-          world.add(
-            Prop(
-              type: PropType.fromRect(propRect),
-              position: pos..add(randomOffset),
-            ),
-          );
-        }
       }
     }
   }

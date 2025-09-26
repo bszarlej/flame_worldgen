@@ -5,6 +5,7 @@ import 'package:fast_noise/fast_noise.dart';
 import 'package:flame/extensions.dart';
 
 import '../math/vector2i.dart';
+import 'tile.dart';
 
 /// Represents a chunk of tiles in a procedural world.
 ///
@@ -36,10 +37,8 @@ class Chunk {
   /// in the world coordinate system (pixels)
   late final Rect worldRect;
 
-  /// The height map for all tiles in this chunk.
-  ///
-  /// Stored as a flat list in row-major order.
-  final List<double> _heightMap;
+  // the tiles inside this chunk
+  final List<Tile> _tiles = [];
 
   /// Creates a new [Chunk] and generates its height map using [noise].
   ///
@@ -52,8 +51,7 @@ class Chunk {
     required this.size,
     required this.tileSize,
   }) : assert(size.x > 0 && size.y > 0, 'Chunk size must be positive'),
-       assert(tileSize.x > 0 && tileSize.y > 0, 'Tile size must be positive'),
-       _heightMap = List.filled(size.x * size.y, 0, growable: false) {
+       assert(tileSize.x > 0 && tileSize.y > 0, 'Tile size must be positive') {
     worldSize = Vector2(
       size.x * tileSize.x.toDouble(),
       size.y * tileSize.y.toDouble(),
@@ -65,34 +63,11 @@ class Chunk {
       worldSize.x,
       worldSize.y,
     );
-    _generateHeightMap();
+    _fillTileList();
   }
 
-  /// Returns the height map for this chunk.
-  List<double> get heightMap => UnmodifiableListView(_heightMap);
-
-  /// Converts local tile coordinates ([col], [row]) to global tile coordinates.
-  Vector2i getGlobalTileCoordinates(int col, int row) {
-    final worldPos = getTileWorldPosition(col, row);
-    return Vector2i(
-      (worldPos.x / tileSize.x).floor(),
-      (worldPos.y / tileSize.y).floor(),
-    );
-  }
-
-  /// Returns the noise value (height) for the tile at ([col], [row]).
-  double getNoise(int col, int row) {
-    final index = row * size.x + col;
-    return _heightMap[index];
-  }
-
-  /// Returns the world position (in pixels) for the tile at ([col], [row]).
-  Vector2 getTileWorldPosition(int col, int row) {
-    return Vector2(
-      coords.x * size.x * tileSize.x + col * tileSize.x.toDouble(),
-      coords.y * size.y * tileSize.y + row * tileSize.y.toDouble(),
-    );
-  }
+  // Returns an unmodifiable list of tiles inside this chunk
+  List<Tile> get tiles => UnmodifiableListView(_tiles);
 
   /// Returns a random position within the bounds of this chunk.
   Vector2 getRandomPosition([Random? rng]) {
@@ -103,15 +78,35 @@ class Chunk {
     );
   }
 
-  /// Generates the height map for this chunk using the [noise] generator.
-  void _generateHeightMap() {
+  Tile getTileAt(Vector2i localCoords) {
+    return tiles.where((tile) => tile.localCoords == localCoords).first;
+  }
+
+  void _fillTileList() {
+    _tiles.clear();
+
     for (int col = 0; col < size.x; col++) {
       for (int row = 0; row < size.y; row++) {
-        final globalPos = getGlobalTileCoordinates(col, row);
-        final index = row * size.x + col;
-        _heightMap[index] = noise.getNoise2(
-          globalPos.x.toDouble(),
-          globalPos.y.toDouble(),
+        final localCoords = Vector2i(col, row);
+        final globalCoords = Vector2i(
+          coords.x * size.x + col,
+          coords.y * size.y + row,
+        );
+        final position = Vector2(
+          globalCoords.x * tileSize.x.toDouble(),
+          globalCoords.y * tileSize.y.toDouble(),
+        );
+        _tiles.add(
+          Tile(
+            noise: noise.getNoise2(
+              globalCoords.x.toDouble(),
+              globalCoords.y.toDouble(),
+            ),
+            globalCoords: globalCoords,
+            localCoords: localCoords,
+            size: tileSize,
+            position: position,
+          ),
         );
       }
     }

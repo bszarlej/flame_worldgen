@@ -173,14 +173,11 @@ class TileLayerComponent extends Component with HasGameReference {
 
     // Remove unloaded chunks and recycle their indices.
     for (final chunk in info.unloadedChunks) {
-      for (int row = 0; row < chunk.size.y; row++) {
-        for (int col = 0; col < chunk.size.x; col++) {
-          final coords = chunk.getGlobalTileCoordinates(col, row);
-          final index = batchIndices.remove(coords);
-          if (index != null) {
-            recycledIndices.add(index);
-            _tileNoiseValues.remove(index);
-          }
+      for (final tile in chunk.tiles) {
+        final index = batchIndices.remove(tile.globalCoords);
+        if (index != null) {
+          recycledIndices.add(index);
+          _tileNoiseValues.remove(index);
         }
       }
     }
@@ -209,26 +206,21 @@ class TileLayerComponent extends Component with HasGameReference {
 
   /// Processes a chunk, adding its tiles to the sprite batch.
   void _processChunk(Chunk chunk, List<int> recycledIndices) {
-    for (int row = 0; row < chunk.size.y; row++) {
-      for (int col = 0; col < chunk.size.x; col++) {
-        final coords = chunk.getGlobalTileCoordinates(col, row);
-        final worldPosition = chunk.getTileWorldPosition(col, row);
-        final noise = chunk.getNoise(col, row);
-        final source = config.spriteSelector.select(
-          noise,
-          config.animationController?.currentFrame ?? 0,
-          coords,
-        );
+    for (final tile in chunk.tiles) {
+      final source = config.spriteSelector.select(
+        tile.noise,
+        config.animationController?.currentFrame ?? 0,
+        tile.globalCoords,
+      );
 
-        if (source != null) {
-          _addOrUpdateTile(
-            coords,
-            worldPosition,
-            source,
-            recycledIndices,
-            noise,
-          );
-        }
+      if (source != null) {
+        _addOrUpdateTile(
+          tile.globalCoords,
+          tile.position,
+          source,
+          recycledIndices,
+          tile.noise,
+        );
       }
     }
   }

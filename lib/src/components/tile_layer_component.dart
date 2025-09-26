@@ -114,6 +114,12 @@ class TileLayerComponent extends Component with HasGameReference {
   /// Stores noise values per sprite batch index (used for animation updates).
   final Map<int, double> _tileNoiseValues = {};
 
+  /// The paint used to render chunk boundaries in debug mode.
+  Paint get chunkDebugPaint => Paint()
+    ..color = Colors.yellow
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 2.0;
+
   int _currentIndex = 0;
   late final StreamSubscription<ChunkUpdateInfo> _chunkUpdateSubscription;
 
@@ -277,13 +283,8 @@ class TileLayerComponent extends Component with HasGameReference {
       canvas.drawRect(rect, debugPaint);
     }
 
-    final chunkPaint = Paint()
-      ..color = Colors.yellow
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.0;
-
     for (final chunk in chunkManager.loadedChunks.values) {
-      canvas.drawRect(chunk.worldRect, chunkPaint);
+      canvas.drawRect(chunk.worldRect, chunkDebugPaint);
     }
   }
 }

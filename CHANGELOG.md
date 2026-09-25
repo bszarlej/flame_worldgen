@@ -1,3 +1,8 @@
+## 3.0.0-dev.1
+
+* **Breaking:** Complete rewrite. The 2.x API has been removed; see the
+  README for the new API.
+
 ## 2.0.0
 
 ### Added

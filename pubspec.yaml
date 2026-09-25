@@ -1,25 +1,26 @@
 name: flame_worldgen
-description: A procedural world generation toolkit for Flame, providing chunk-based tile management, animated and weighted sprites, and noise-driven terrain generation for 2D games.
-version: 2.0.0
+description: Infinite, seeded, procedural tile worlds for Flame, with chunk streaming, noise-driven biomes, autotiling, object scattering, collision and saveable edits.
+version: 3.0.0-dev.1
 repository: https://github.com/bszarlej/flame_worldgen
 issue_tracker: https://github.com/bszarlej/flame_worldgen/issues
 topics:
   - flame
-  - noise
   - game-development
+  - procedural-generation
+  - tilemap
+  - noise
 
 environment:
-  sdk: ^3.8.1
-  flutter: ">=1.17.0"
+  sdk: ^3.11.0
+  flutter: ">=3.41.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  flame: ^1.30.1
+  flame: ^1.38.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ">=5.0.0 <7.0.0"
-  test: ^1.25.15
   flame_test: ^2.3.1

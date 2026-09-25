@@ -1,11 +1,12 @@
 import 'dart:typed_data';
 
 import 'coords.dart';
+import 'generation/scatter.dart';
 
 /// The generated contents of one chunk: a tile id and a biome index per
-/// tile, stored row by row.
+/// tile, stored row by row, and the chunk's scatter spots.
 ///
-/// Holds only typed data, so it can be sent between isolates cheaply. Tile
+/// Holds only plain data, so it can be sent between isolates. Tile
 /// ids refer to the world's `TilePalette`, and biome indexes to the order of
 /// the world's biomes.
 class ChunkData {
@@ -48,6 +49,9 @@ class ChunkData {
 
   /// The biome index of every tile, indexed by [ChunkGrid.localIndex].
   final Uint8List biomes;
+
+  /// Where objects go in this chunk.
+  final List<ScatterSpot> spots = [];
 
   /// The top-left tile of the chunk.
   TileCoord get origin => grid.origin(coord);

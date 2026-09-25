@@ -6,6 +6,7 @@ export 'src/core/generation/biome.dart';
 export 'src/core/generation/generation_pass.dart'
     show ChunkBuilder, GenerationPass;
 export 'src/core/generation/sample.dart' show Sample;
+export 'src/core/generation/scatter.dart' show ScatterRule, ScatterSpot;
 export 'src/core/generation/world_generator.dart' show WorldGenerator;
 export 'src/core/noise/noise_field.dart'
     show DomainWarp, NoiseBasis, NoiseField, NoiseFunction;

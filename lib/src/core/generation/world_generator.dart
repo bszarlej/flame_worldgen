@@ -1,11 +1,13 @@
 import '../chunk_data.dart';
 import '../coords.dart';
+import '../hash.dart';
 import '../noise/noise_field.dart';
 import '../tile_palette.dart';
 import '../tile_type.dart';
 import 'biome.dart';
 import 'generation_pass.dart';
 import 'sample.dart';
+import 'scatter.dart';
 
 /// Decides which tile type goes where, using noise fields and biomes.
 ///
@@ -36,6 +38,7 @@ class WorldGenerator {
        biomes = List.unmodifiable(biomes),
        passes = List.unmodifiable(passes) {
     _checkBiomes(this.biomes);
+    scatterRules = _collectScatterRules(this.biomes);
   }
 
   /// The noise fields that biome conditions and passes can read.
@@ -46,6 +49,29 @@ class WorldGenerator {
 
   /// The passes that run after biomes are placed, in order.
   final List<GenerationPass> passes;
+
+  /// Every scatter rule of every biome, each once, in biome order.
+  late final List<ScatterRule> scatterRules;
+}
+
+List<ScatterRule> _collectScatterRules(List<Biome> biomes) {
+  final rules = <ScatterRule>[];
+  final names = <String>{};
+  for (final biome in biomes) {
+    for (final rule in biome.scatter) {
+      if (rules.any((existing) => identical(existing, rule))) continue;
+      checkScatterRule(rule);
+      if (!names.add(rule.name)) {
+        throw ArgumentError.value(
+          rule,
+          'scatter',
+          'Two different scatter rules are named "${rule.name}"',
+        );
+      }
+      rules.add(rule);
+    }
+  }
+  return List.unmodifiable(rules);
 }
 
 void _checkBiomes(List<Biome> biomes) {
@@ -114,6 +140,17 @@ class ChunkGenerator {
     _groundIds = [
       for (final biome in generator.biomes) palette.idOf(biome.ground),
     ];
+    _ruleSeeds = [
+      for (final rule in generator.scatterRules)
+        deriveSeed(seed, 'scatter ${rule.name}'),
+    ];
+    _ruleOwners = [
+      for (final rule in generator.scatterRules)
+        [
+          for (final biome in generator.biomes)
+            biome.scatter.any((owned) => identical(owned, rule)),
+        ],
+    ];
   }
 
   /// The generator this builds chunks with.
@@ -130,6 +167,10 @@ class ChunkGenerator {
 
   final ChunkFields _fields;
   late final List<int> _groundIds;
+  late final List<int> _ruleSeeds;
+
+  /// For each scatter rule, whether each biome has it.
+  late final List<List<bool>> _ruleOwners;
 
   /// Generates the chunk at [coord].
   ChunkData generate(ChunkCoord coord) {
@@ -161,6 +202,30 @@ class ChunkGenerator {
         ),
       );
     }
+
+    _scatter(chunk);
     return chunk;
+  }
+
+  void _scatter(ChunkData chunk) {
+    final origin = chunk.origin;
+    for (var rule = 0; rule < generator.scatterRules.length; rule++) {
+      final owners = _ruleOwners[rule];
+      final spots = scatterSpots(
+        generator.scatterRules[rule],
+        rule,
+        _ruleSeeds[rule],
+        origin.x,
+        origin.y,
+        grid.size,
+      );
+      for (final spot in spots) {
+        final index = grid.localIndex(spot.coord);
+        final biome = chunk.biomes[index];
+        if (owners[biome] && chunk.tiles[index] == _groundIds[biome]) {
+          chunk.spots.add(spot);
+        }
+      }
+    }
   }
 }

@@ -233,6 +233,11 @@ transitions around it update too.
 Scatter objects per biome. Spots are spread evenly and are the same every time
 a chunk is generated. `spawn` returns any Flame component.
 
+Objects are only placed on tiles that still have their biome's ground, so a
+road laid by a pass stays clear. The larger `minDistance`, the fewer objects
+fit: with a `minDistance` of 2, `density` can be at most about 0.09. A rule
+that asks for more throws with the limit.
+
 ```dart
 Biome(
   'forest',

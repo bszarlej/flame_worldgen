@@ -160,8 +160,11 @@ final generator = WorldGenerator(
 ### Custom passes
 
 For things noise can't express, such as roads or rivers, add passes that run
-after biomes are placed. A pass only receives the chunk and the world seed, so
-it has to be deterministic.
+after biomes are placed. Passes run in order, one chunk at a time, and must be
+deterministic: use `chunk.random` instead of `Random()`, which gives the same
+numbers every time the chunk is generated. Passes can also read
+`chunk.biomeAt(coord)` and `chunk.valueAt(field, coord)`, and can place any
+tile type that's in the tileset.
 
 ```dart
 class RoadPass extends GenerationPass {

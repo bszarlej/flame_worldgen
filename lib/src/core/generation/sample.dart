@@ -81,6 +81,23 @@ class ChunkFields {
   /// Points [sample] at the tile with the row-major [index] in the chunk
   /// last passed to [evaluate].
   void moveTo(int index) => _index = index;
+
+  /// Returns the value of [field] at the row-major [index] in the chunk last
+  /// passed to [evaluate].
+  ///
+  /// Throws if [field] isn't one of the generator's fields.
+  double valueAt(NoiseField field, int index) {
+    final slot = _slots[field];
+    if (slot == null) {
+      throw ArgumentError.value(
+        field,
+        'field',
+        'is not one of the generator\'s fields. Add it to '
+            'WorldGenerator(fields: [...])',
+      );
+    }
+    return _values[slot][index];
+  }
 }
 
 class _ChunkSample implements Sample {
@@ -92,16 +109,6 @@ class _ChunkSample implements Sample {
   TileCoord get coord => _fields.grid.tileAt(_fields._chunk, _fields._index);
 
   @override
-  double operator [](NoiseField field) {
-    final slot = _fields._slots[field];
-    if (slot == null) {
-      throw ArgumentError.value(
-        field,
-        'field',
-        'is not one of the generator\'s fields. Add it to '
-            'WorldGenerator(fields: [...])',
-      );
-    }
-    return _fields._values[slot][_fields._index];
-  }
+  double operator [](NoiseField field) =>
+      _fields.valueAt(field, _fields._index);
 }

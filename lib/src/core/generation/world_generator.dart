@@ -2,7 +2,9 @@ import '../chunk_data.dart';
 import '../coords.dart';
 import '../noise/noise_field.dart';
 import '../tile_palette.dart';
+import '../tile_type.dart';
 import 'biome.dart';
+import 'generation_pass.dart';
 import 'sample.dart';
 
 /// Decides which tile type goes where, using noise fields and biomes.
@@ -21,23 +23,29 @@ import 'sample.dart';
 /// A generator holds no seed. The same generator produces a different world
 /// for every seed.
 class WorldGenerator {
-  /// Creates a generator that picks between [biomes] using [fields].
+  /// Creates a generator that picks between [biomes] using [fields], then
+  /// runs [passes] in order.
   ///
   /// Throws if [biomes] is empty, if the last biome has a `when` condition,
   /// if any other biome lacks one, or if two biomes share a name.
   WorldGenerator({
     List<NoiseField> fields = const [],
     required List<Biome> biomes,
+    List<GenerationPass> passes = const [],
   }) : fields = List.unmodifiable(fields),
-       biomes = List.unmodifiable(biomes) {
+       biomes = List.unmodifiable(biomes),
+       passes = List.unmodifiable(passes) {
     _checkBiomes(this.biomes);
   }
 
-  /// The noise fields that biome conditions can read.
+  /// The noise fields that biome conditions and passes can read.
   final List<NoiseField> fields;
 
   /// The biomes, in the order they're checked.
   final List<Biome> biomes;
+
+  /// The passes that run after biomes are placed, in order.
+  final List<GenerationPass> passes;
 }
 
 void _checkBiomes(List<Biome> biomes) {
@@ -90,11 +98,19 @@ void _checkBiomes(List<Biome> biomes) {
 /// Reuses its buffers between chunks, so each isolate needs its own.
 class ChunkGenerator {
   /// Prepares [generator] for the world with [seed], in chunks of [grid].
-  ChunkGenerator(this.generator, {required this.seed, required this.grid})
-    : palette = TilePalette([
-        for (final biome in generator.biomes) biome.ground,
-      ]),
-      _fields = ChunkFields(generator.fields, seed, grid) {
+  ///
+  /// Passes can place the biomes' ground tiles and any of [tiles], which the
+  /// map fills from its tileset.
+  ChunkGenerator(
+    this.generator, {
+    required this.seed,
+    required this.grid,
+    Iterable<TileType> tiles = const [],
+  }) : palette = TilePalette([
+         for (final biome in generator.biomes) biome.ground,
+         ...tiles,
+       ]),
+       _fields = ChunkFields(generator.fields, seed, grid) {
     _groundIds = [
       for (final biome in generator.biomes) palette.idOf(biome.ground),
     ];
@@ -131,6 +147,19 @@ class ChunkGenerator {
       }
       chunk.tiles[index] = _groundIds[biome];
       chunk.biomes[index] = biome;
+    }
+
+    for (final (index, pass) in generator.passes.indexed) {
+      pass.apply(
+        ChunkBuilderImpl(
+          chunk,
+          palette,
+          biomes,
+          _fields,
+          seed: seed,
+          passIndex: index,
+        ),
+      );
     }
     return chunk;
   }

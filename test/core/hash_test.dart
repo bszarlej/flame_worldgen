@@ -73,6 +73,23 @@ void main() {
     }
   });
 
+  group('deriveSeed', () {
+    const golden = {
+      (0, ''): 2860080388,
+      (0, 'elevation'): 893951276,
+      (42, 'elevation'): 3729617305,
+      (42, 'moisture'): 1016968893,
+      (-7, 'trees'): 2991807388,
+      (42, 'żółw'): 1456112620,
+    };
+
+    for (final MapEntry(key: (seed, name), :value) in golden.entries) {
+      test("($seed, '$name') is $value", () {
+        expect(deriveSeed(seed, name), value);
+      });
+    }
+  });
+
   test('hashes are unsigned 32-bit integers', () {
     for (var x = -1000; x < 1000; x++) {
       final hash = hash2(x, -x * 7, x);

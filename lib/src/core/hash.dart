@@ -6,6 +6,8 @@
 // above 2^53 lose precision. Multiplications go through [_mul32], which keeps
 // every intermediate value below that limit.
 
+import 'dart:convert';
+
 const _mask32 = 0xFFFFFFFF;
 
 const _noise1 = 0xD2A80A3F;
@@ -53,6 +55,20 @@ int hash3(int x, int y, int z, int seed) {
     x + _mul32(y & _mask32, _primeY) + _mul32(z & _mask32, _primeZ),
     seed,
   );
+}
+
+/// Derives an independent seed for the thing called [name] from [worldSeed].
+///
+/// Noise fields, scatters and passes each get their own seed this way, so
+/// they don't produce correlated patterns. The result depends only on the
+/// name, so adding or reordering things doesn't change existing ones.
+int deriveSeed(int worldSeed, String name) {
+  // 32-bit FNV-1a over the UTF-8 bytes of the name.
+  var nameHash = 0x811C9DC5;
+  for (final byte in utf8.encode(name)) {
+    nameHash = _mul32(nameHash ^ byte, 0x01000193);
+  }
+  return hash1(nameHash, worldSeed);
 }
 
 /// Maps a 32-bit [hash] to a double in the range [0, 1).

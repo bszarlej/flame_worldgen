@@ -1,20 +1,8 @@
-# Flame Worldgen Example
+# flame_worldgen_example
 
-This example demonstrates how to use the `flame_worldgen` package
-to generate procedural game worlds with Flame.
+Example app for flame_worldgen.
 
-## Running the example
-
-1. Make sure you have Flutter installed.
-2. From this `example/` folder, run:
-
-```bash
-flutter create . --empty && flutter run
+```sh
+cd example
+flutter run -d windows   # or: flutter run -d chrome
 ```
-
-### Controls
-
-* `W`, `A`, `S`, `D` - Move the player
-* `Left Shift` – Increase player movement speed (boost)
-* `Numpad -`, `Numpad +` - Adjust view distance
-* Mouse Scroll - Zoom camera in/out

@@ -1,0 +1,31 @@
+# When this file exists, pub ignores the root .gitignore for publishing,
+# so its rules are repeated here. Keep both files in sync.
+
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart/Pub related
+/pubspec.lock
+**/doc/api/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+
+# Not needed by package users (README links to it on GitHub)
+/assets/demo.gif

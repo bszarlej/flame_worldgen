@@ -29,20 +29,26 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [vm, chrome]
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
       - run: flutter pub get
-      - if: matrix.platform == 'vm'
-        run: flutter test
-      - if: matrix.platform == 'chrome'
-        run: flutter test --platform chrome
+      - run: flutter test
+
+  # The pure-Dart core compiled with dart2js, where ints are JS doubles and
+  # bitwise operators return unsigned 32-bit results. Catches determinism bugs
+  # the VM can't.
+  test-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: dart test -p chrome test/core
 
   # Checks that the lower bounds in pubspec.yaml still work.
   downgrade:

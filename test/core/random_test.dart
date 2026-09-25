@@ -1,5 +1,5 @@
 import 'package:flame_worldgen/src/core/random.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
 // Golden values come from the same Python reference as hash_test.dart.
 

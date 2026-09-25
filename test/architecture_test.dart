@@ -3,7 +3,7 @@ library;
 
 import 'dart:io';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
 /// Imports that would stop `lib/src/core` from running in an isolate, on the
 /// web, or under plain `dart test`.

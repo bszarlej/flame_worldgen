@@ -1,5 +1,5 @@
 import 'package:flame_worldgen/src/core/coords.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
 void main() {
   group('TileCoord', () {

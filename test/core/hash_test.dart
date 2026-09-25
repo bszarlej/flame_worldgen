@@ -1,9 +1,9 @@
 import 'package:flame_worldgen/src/core/hash.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
 // Golden values come from an independent Python implementation of
 // SquirrelNoise5 using arbitrary-precision integers. They must match on every
-// platform, so this file also runs on Chrome in CI.
+// platform, so this file also runs on Chrome in CI (`dart test -p chrome`).
 
 void main() {
   group('hash1', () {

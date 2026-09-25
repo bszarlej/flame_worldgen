@@ -1,7 +1,5 @@
 # flame_worldgen
 
-![Demo](https://raw.githubusercontent.com/bszarlej/flame_worldgen/master/assets/demo.gif)
-
 <a title="CI" href="https://github.com/bszarlej/flame_worldgen/actions/workflows/ci.yaml"><img src="https://github.com/bszarlej/flame_worldgen/actions/workflows/ci.yaml/badge.svg"></a>
 <a title="Pub" href="https://pub.dev/packages/flame_worldgen" ><img src="https://img.shields.io/pub/v/flame_worldgen.svg?style=popout"></a>
 <a title="Pub Points" href="https://pub.dev/packages/flame_worldgen/score"><img src="https://img.shields.io/pub/points/flame_worldgen.svg?style=popout"></a>

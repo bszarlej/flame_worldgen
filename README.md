@@ -132,11 +132,13 @@ final temperature = NoiseField.perlin(
   frequency: 0.002,
   warp: DomainWarp(strength: 40), // bends the field for more natural shapes
 );
-final rivers = NoiseField.custom('rivers', (x, y) => myRiverFunction(x, y));
+// x and y are in tiles. Use the seed so every world gets different rivers.
+final rivers = NoiseField.custom('rivers', (x, y, seed) => myRivers(x, y, seed));
 ```
 
 Each field gets its own seed derived from the world seed and the field's name.
-Renaming a field changes its output; reordering fields doesn't.
+Renaming a field changes its output; reordering fields doesn't. Noise values
+are identical on every platform, including the web.
 
 ### Biomes
 

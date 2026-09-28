@@ -132,10 +132,7 @@ class ChunkGenerator {
     required this.seed,
     required this.grid,
     Iterable<TileType> tiles = const [],
-  }) : palette = TilePalette([
-         for (final biome in generator.biomes) biome.ground,
-         ...tiles,
-       ]),
+  }) : palette = paletteFor(generator, tiles),
        _fields = ChunkFields(generator.fields, seed, grid) {
     _groundIds = [
       for (final biome in generator.biomes) palette.idOf(biome.ground),
@@ -152,6 +149,18 @@ class ChunkGenerator {
         ],
     ];
   }
+
+  /// The palette of chunks generated with [generator] and [tiles].
+  ///
+  /// It's the same on every isolate, so a chunk's tile ids can be drawn on
+  /// the main isolate while it's generated on a worker.
+  static TilePalette paletteFor(
+    WorldGenerator generator,
+    Iterable<TileType> tiles,
+  ) => TilePalette([
+    for (final biome in generator.biomes) biome.ground,
+    ...tiles,
+  ]);
 
   /// The generator this builds chunks with.
   final WorldGenerator generator;

@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:collection';
 import 'dart:ui';
 
 import 'package:flame/components.dart';
@@ -5,10 +7,19 @@ import 'package:flame/game.dart';
 import 'package:flame/sprite.dart';
 import 'package:flutter/foundation.dart';
 
+import 'chunk.dart';
 import 'core/chunk_data.dart';
 import 'core/coords.dart';
+import 'core/generation/biome.dart';
+import 'core/generation/scatter.dart';
 import 'core/generation/world_generator.dart';
+import 'core/tile_palette.dart';
+import 'core/tile_type.dart';
 import 'render/tileset.dart';
+import 'streaming/chunk_range.dart';
+import 'streaming/chunk_streamer.dart';
+import 'streaming/create_executor.dart';
+import 'streaming/streaming_options.dart';
 
 /// An infinite, seeded tile world that follows the camera.
 ///
@@ -23,8 +34,10 @@ import 'render/tileset.dart';
 /// ```
 ///
 /// Chunks are generated around the camera's visible area as it moves and
-/// dropped when they're far away. Tile (0, 0) is drawn at the map's origin,
-/// and each tile is [Tileset.tileSize] pixels.
+/// unloaded when they're far away. Generation runs on a worker isolate, or
+/// on the web within a time budget per frame, so new chunks appear a few
+/// frames after they come into range. Tile (0, 0) is drawn at the map's
+/// origin, and each tile is [Tileset.tileSize] pixels.
 ///
 /// Turn on [debugMode] to see chunk borders, chunk coordinates and scatter
 /// spots.
@@ -34,13 +47,20 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   ///
   /// [chunkSize] is the number of tiles along each side of a chunk and must
   /// be a power of two. [camera] defaults to the game's camera.
+  ///
+  /// The generator is sent to a worker isolate, so it must not reference
+  /// anything that can't cross isolates, such as images or components.
   ProceduralMap({
     required this.seed,
     required this.generator,
     required this.tileset,
     int chunkSize = 32,
+    StreamingOptions? streaming,
+    this.onChunkLoaded,
+    this.onChunkUnloaded,
     CameraComponent? camera,
   }) : grid = ChunkGrid(chunkSize),
+       streaming = streaming ?? StreamingOptions(),
        _camera = camera;
 
   /// The world seed.
@@ -55,19 +75,31 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   /// The size of the chunks.
   final ChunkGrid grid;
 
-  /// Chunks loaded beyond the visible area, in every direction.
-  static const _loadMargin = 1;
+  /// How chunks are loaded and unloaded.
+  final StreamingOptions streaming;
 
-  /// Chunks kept beyond the visible area before they're dropped. Larger than
-  /// [_loadMargin], so moving back and forth over a chunk border doesn't
-  /// generate the same chunks again and again.
-  static const _unloadMargin = 2;
+  /// Called when a chunk is loaded, during [update] and before the chunk is
+  /// first rendered.
+  final void Function(Chunk chunk)? onChunkLoaded;
+
+  /// Called when a chunk is unloaded, during [update] or when the map is
+  /// removed.
+  final void Function(Chunk chunk)? onChunkUnloaded;
 
   final CameraComponent? _camera;
-  late final ChunkGenerator _chunks;
+  late final TilePalette _palette;
   late final List<Rect> _sourceRects;
   final _loaded = <ChunkCoord, _LoadedChunk>{};
   final _paint = Paint()..filterQuality = FilterQuality.none;
+
+  /// Loads and unloads chunks. Null while the worker is starting and after
+  /// the map is removed.
+  ChunkStreamer? _streamer;
+  Future<void>? _starting;
+
+  /// Whether the map is loading or mounted, so a worker that finishes
+  /// starting after the map is removed is stopped again.
+  var _active = false;
 
   CameraComponent get _activeCamera => _camera ?? game.camera;
 
@@ -75,33 +107,67 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   @visibleForTesting
   Iterable<ChunkCoord> get loadedChunks => _loaded.keys;
 
+  /// Whether every chunk the last [update] wanted is loaded. False while the
+  /// worker is starting.
+  @visibleForTesting
+  bool get isSettled => _streamer?.inFlight == 0;
+
   /// The size of one chunk, in pixels.
   late final Vector2 _chunkPixels;
 
   @override
   Future<void> onLoad() async {
-    _chunks = ChunkGenerator(
-      generator,
-      seed: seed,
-      grid: grid,
-      tiles: tileset.tiles.keys,
-    );
-    _sourceRects = tileset.sourceRects(_chunks.palette);
+    _active = true;
+    _palette = ChunkGenerator.paletteFor(generator, tileset.tiles.keys);
+    _sourceRects = tileset.sourceRects(_palette);
     _chunkPixels = tileset.tileSize * grid.size.toDouble();
+    await _startStreaming();
   }
 
   @override
-  void update(double dt) {
-    final visible = _activeCamera.visibleWorldRect;
-    if (visible.isEmpty) return;
+  void onMount() {
+    _active = true;
+    // The map was removed and added again.
+    if (_streamer == null) unawaited(_startStreaming());
+  }
 
-    final load = _chunkRange(visible, _loadMargin);
-    final keep = _chunkRange(visible, _unloadMargin);
+  @override
+  void onRemove() {
+    _active = false;
+    _streamer?.dispose();
+    _streamer = null;
+  }
 
-    _loaded.removeWhere((coord, _) => !keep.contains(coord));
-    for (final coord in load.coords) {
-      _loaded.putIfAbsent(coord, () => _load(coord));
+  Future<void> _startStreaming() => _starting ??= () async {
+    try {
+      final executor = await createExecutor(
+        generator,
+        seed: seed,
+        grid: grid,
+        tiles: tileset.tiles.keys,
+        frameBudget: streaming.frameBudget,
+      );
+      if (!_active || _streamer != null) {
+        executor.dispose();
+        return;
+      }
+      _streamer = ChunkStreamer(
+        executor: executor,
+        options: streaming,
+        onLoaded: _load,
+        onUnloaded: _unload,
+      );
+    } finally {
+      _starting = null;
     }
+  }();
+
+  @override
+  void update(double dt) {
+    final streamer = _streamer;
+    final visible = _activeCamera.visibleWorldRect;
+    if (streamer == null || visible.isEmpty) return;
+    streamer.update(_visibleChunks(visible));
   }
 
   @override
@@ -137,8 +203,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     }
   }
 
-  _LoadedChunk _load(ChunkCoord coord) {
-    final data = _chunks.generate(coord);
+  void _load(ChunkData data) {
     final tile = tileset.tileSize;
     final origin = data.origin;
     final batch = SpriteBatch(tileset.atlas);
@@ -150,8 +215,10 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
         transform: RSTransform(1, 0, x * tile.x, y * tile.y),
       );
     }
-    return _LoadedChunk(
+    final chunk = _LoadedChunk(
       data,
+      _palette,
+      generator.biomes,
       batch,
       Rect.fromLTWH(
         origin.x * tile.x,
@@ -160,50 +227,56 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
         _chunkPixels.y,
       ),
     );
+    _loaded[data.coord] = chunk;
+    onChunkLoaded?.call(chunk);
   }
 
-  /// The chunks that [visible] overlaps, plus [margin] chunks on each side.
-  _ChunkRange _chunkRange(Rect visible, int margin) {
+  void _unload(ChunkData data) {
+    final chunk = _loaded.remove(data.coord);
+    if (chunk != null) onChunkUnloaded?.call(chunk);
+  }
+
+  /// The chunks that [visible] overlaps.
+  ChunkRange _visibleChunks(Rect visible) {
     final pixels = _chunkPixels;
-    return _ChunkRange(
-      (visible.left / pixels.x).floor() - margin,
-      (visible.top / pixels.y).floor() - margin,
-      (visible.right / pixels.x).floor() + margin,
-      (visible.bottom / pixels.y).floor() + margin,
+    return ChunkRange(
+      (visible.left / pixels.x).floor(),
+      (visible.top / pixels.y).floor(),
+      (visible.right / pixels.x).floor(),
+      (visible.bottom / pixels.y).floor(),
     );
   }
 }
 
-class _LoadedChunk {
-  _LoadedChunk(this.data, this.batch, this.bounds);
+class _LoadedChunk implements Chunk {
+  _LoadedChunk(this.data, this._palette, this._biomes, this.batch, this.bounds);
 
   final ChunkData data;
+  final TilePalette _palette;
+  final List<Biome> _biomes;
   final SpriteBatch batch;
 
-  /// Where the chunk is in the world, in pixels.
+  @override
   final Rect bounds;
-}
 
-/// An inclusive rectangle of chunk coordinates.
-class _ChunkRange {
-  const _ChunkRange(this.left, this.top, this.right, this.bottom);
+  @override
+  ChunkCoord get coord => data.coord;
 
-  final int left;
-  final int top;
-  final int right;
-  final int bottom;
+  @override
+  Iterable<TileCoord> get coords => data.coords;
 
-  bool contains(ChunkCoord coord) =>
-      coord.x >= left &&
-      coord.x <= right &&
-      coord.y >= top &&
-      coord.y <= bottom;
+  @override
+  bool contains(TileCoord tile) => data.contains(tile);
 
-  Iterable<ChunkCoord> get coords sync* {
-    for (var y = top; y <= bottom; y++) {
-      for (var x = left; x <= right; x++) {
-        yield ChunkCoord(x, y);
-      }
-    }
-  }
+  @override
+  TileType tileAt(TileCoord tile) => _palette[data.tileIdAt(tile)];
+
+  @override
+  Biome biomeAt(TileCoord tile) => _biomes[data.biomeAt(tile)];
+
+  @override
+  List<ScatterSpot> get spots => UnmodifiableListView(data.spots);
+
+  @override
+  String toString() => 'Chunk($coord)';
 }

@@ -308,6 +308,10 @@ ProceduralMap(seed: 42, edits: WorldEdits.fromJson(save), ...);
 
 ## Streaming
 
+Chunks are generated on a worker isolate, so the game never waits for them.
+The web has no isolates, so there chunks are generated between frames, within
+a time budget. The defaults:
+
 ```dart
 ProceduralMap(
   streaming: StreamingOptions(
@@ -316,14 +320,19 @@ ProceduralMap(
     cacheSize: 128, // generated chunks kept in memory after unloading
     frameBudget: Duration(milliseconds: 2), // generation time per frame on the web
   ),
-  onChunkLoaded: (chunk) {},
+  onChunkLoaded: (chunk) => print('${chunk.coord} at ${chunk.bounds}'),
   onChunkUnloaded: (chunk) {},
   ...
 );
 ```
 
 Chunk callbacks run synchronously during `update`, before the chunk is first
-rendered.
+rendered. A `Chunk` has its `coord`, its `bounds` in pixels, `tileAt`,
+`biomeAt` and its scatter `spots`.
+
+The generator is sent to the worker, so biome conditions, passes and custom
+noise must not reference anything that can't cross isolates, such as images
+or components.
 
 ## Migrating from 2.x
 

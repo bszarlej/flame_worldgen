@@ -3,6 +3,7 @@ import 'package:flame_worldgen/src/core/coords.dart';
 import 'package:flame_worldgen/src/streaming/chunk_executor.dart';
 import 'package:flame_worldgen/src/streaming/chunk_range.dart';
 import 'package:flame_worldgen/src/streaming/chunk_streamer.dart';
+import 'package:flame_worldgen/src/streaming/streaming_options.dart';
 import 'package:test/test.dart';
 
 /// An executor whose chunks finish only when the test says so.
@@ -57,9 +58,11 @@ void main() {
     events = [];
     return ChunkStreamer(
       executor: executor,
-      loadMargin: loadMargin,
-      unloadMargin: unloadMargin,
-      cacheSize: cacheSize,
+      options: StreamingOptions(
+        loadMargin: loadMargin,
+        unloadMargin: unloadMargin,
+        cacheSize: cacheSize,
+      ),
       onLoaded: (chunk) => events.add('+${chunk.coord.x},${chunk.coord.y}'),
       onUnloaded: (chunk) => events.add('-${chunk.coord.x},${chunk.coord.y}'),
     );
@@ -205,39 +208,6 @@ void main() {
     expect(events, hasLength(9));
     expect(chunks.loaded, isEmpty);
     expect(executor.disposed, isTrue);
-  });
-
-  test('rejects invalid margins and cache sizes', () {
-    final executor = _FakeExecutor();
-    void noop(ChunkData _) {}
-    expect(
-      () => ChunkStreamer(
-        executor: executor,
-        onLoaded: noop,
-        onUnloaded: noop,
-        loadMargin: 2,
-        unloadMargin: 1,
-      ),
-      throwsArgumentError,
-    );
-    expect(
-      () => ChunkStreamer(
-        executor: executor,
-        onLoaded: noop,
-        onUnloaded: noop,
-        loadMargin: -1,
-      ),
-      throwsArgumentError,
-    );
-    expect(
-      () => ChunkStreamer(
-        executor: executor,
-        onLoaded: noop,
-        onUnloaded: noop,
-        cacheSize: -1,
-      ),
-      throwsArgumentError,
-    );
   });
 
   group('ChunkRange', () {

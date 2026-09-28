@@ -1,6 +1,7 @@
 /// Infinite, seeded, procedural tile worlds for Flame.
 library;
 
+export 'src/chunk.dart';
 export 'src/core/coords.dart' show ChunkCoord, TileCoord;
 export 'src/core/generation/biome.dart';
 export 'src/core/generation/generation_pass.dart'
@@ -14,3 +15,4 @@ export 'src/core/tile_type.dart';
 export 'src/procedural_map.dart';
 export 'src/render/tile_sprite.dart' show TileSprite;
 export 'src/render/tileset.dart';
+export 'src/streaming/streaming_options.dart';

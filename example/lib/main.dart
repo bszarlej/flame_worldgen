@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame_worldgen/flame_worldgen.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -11,6 +13,8 @@ import 'player.dart';
 import 'world.dart';
 
 void main() {
+  // Right-click fills water, so the browser shouldn't open its menu.
+  if (kIsWeb) unawaited(BrowserContextMenu.disableContextMenu());
   runApp(GameWidget(game: FlameWorldgenExample()));
 }
 
@@ -18,9 +22,15 @@ void main() {
 ///
 /// WASD or arrow keys walk, Shift runs, the mouse wheel zooms, F1 toggles
 /// chunk borders, scatter spots and hitboxes, and N generates a new world.
-/// Trees, rocks and bushes are spawned by the biomes' `Scatter` rules.
+/// Click digs water and right-click fills it with sand. Trees, rocks and
+/// bushes are spawned by the biomes' `Scatter` rules.
 class FlameWorldgenExample extends FlameGame
-    with HasCollisionDetection, KeyboardEvents, ScrollDetector {
+    with
+        HasCollisionDetection,
+        KeyboardEvents,
+        ScrollDetector,
+        TapCallbacks,
+        SecondaryTapCallbacks {
   static const _minZoom = 0.1;
   static const _maxZoom = 4.0;
 
@@ -83,7 +93,25 @@ class FlameWorldgenExample extends FlameGame
   void _updateHelp() {
     _help.text =
         'seed $_seed · WASD: walk · Shift: run · wheel: zoom · '
-        'F1: debug · N: new world';
+        'click: dig · right-click: fill · F1: debug · N: new world';
+  }
+
+  @override
+  void onTapDown(TapDownEvent event) => _edit(event.canvasPosition, water);
+
+  @override
+  void onSecondaryTapDown(SecondaryTapDownEvent event) =>
+      _edit(event.canvasPosition, sand);
+
+  /// Changes the tile under [screenPosition] to [type]. The map updates its
+  /// transitions and hitboxes, and keeps the change when the chunk reloads.
+  void _edit(Vector2 screenPosition, TileType type) {
+    final coord = _map.tileCoordAt(camera.globalToLocal(screenPosition));
+    final tile =
+        _map.positionOf(coord).toOffset() & _map.tileset.tileSize.toSize();
+    // Water under the player would trap it.
+    if (type.solid && tile.overlaps(_player.toRect())) return;
+    _map.setTile(coord, type);
   }
 
   @override

@@ -353,6 +353,11 @@ final save = map.edits.toJson();
 ProceduralMap(seed: 42, edits: WorldEdits.fromJson(save), ...);
 ```
 
+Edits are applied to chunks as they load, so a changed tile stays changed
+when its chunk unloads and loads again. `setTile` works anywhere, even where
+no chunk is loaded, and queries return the new tile right away; loaded chunks
+show it from the next update. Objects on the tile stay where they are.
+
 ## Streaming
 
 Chunks are generated on a worker isolate, so the game never waits for them.

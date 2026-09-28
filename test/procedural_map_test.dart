@@ -6,7 +6,7 @@ import 'package:flame/game.dart';
 import 'package:flame_test/flame_test.dart';
 import 'package:flame_worldgen/flame_worldgen.dart';
 import 'package:flame_worldgen/src/core/core.dart'
-    show ChunkData, ChunkGenerator, ChunkGrid;
+    show ChunkData, ChunkGenerator, ChunkGrid, recordTile;
 import 'package:flame_worldgen/src/render/chunk_painter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -320,59 +320,61 @@ void main() {
     expectFrame(frame0);
   });
 
-  testWithFlameGame("with transitions, chunks draw their neighbours' edge "
-      'tiles', (game) async {
-    final generator = _generator();
-    final set = Tileset(
-      image: await generateImage(128, 64),
-      tileSize: Vector2.all(16),
-      tiles: {
-        _water: const TileSprite.at(0, 0),
-        _grass: const TileSprite.at(1, 0),
-        _dirt: const TileSprite.at(2, 0),
-      },
-      transitions: const [
-        Autotile.dualGrid(upper: _grass, lower: _water, at: (4, 0)),
-      ],
-    );
-    final procedural = ProceduralMap(
-      seed: 42,
-      generator: generator,
-      tileset: set,
-      chunkSize: 16,
-    );
-    await game.world.ensureAdd(procedural);
-    await _settle(game, procedural);
+  /// A tileset where grass blends into water.
+  Future<Tileset> blended() async => Tileset(
+    image: await generateImage(128, 64),
+    tileSize: Vector2.all(16),
+    tiles: {
+      _water: const TileSprite.at(0, 0),
+      _grass: const TileSprite.at(1, 0),
+      _dirt: const TileSprite.at(2, 0),
+    },
+    transitions: const [
+      Autotile.dualGrid(upper: _grass, lower: _water, at: (4, 0)),
+    ],
+  );
 
-    // Paint each chunk again, knowing every tile, and compare.
-    final grid = ChunkGrid(16);
+  /// Checks that each loaded chunk whose left and upper neighbours are loaded
+  /// shows the generated world with [ProceduralMap.edits], by painting it
+  /// again, knowing every tile.
+  void expectPaintedAsGenerated(ProceduralMap procedural) {
+    final grid = procedural.grid;
     final direct = ChunkGenerator(
-      generator,
-      seed: 42,
+      procedural.generator,
+      seed: procedural.seed,
       grid: grid,
-      tiles: set.tiles.keys,
+      tiles: procedural.tileset.tiles.keys,
     );
+    final palette = direct.palette;
     final chunks = <ChunkCoord, ChunkData>{};
-    ChunkData chunkAt(ChunkCoord coord) =>
-        chunks[coord] ??= direct.generate(coord);
+    ChunkData chunkAt(ChunkCoord coord) => chunks[coord] ??= () {
+      final chunk = direct.generate(coord);
+      for (final MapEntry(key: tile, value: name)
+          in procedural.edits.tiles.entries) {
+        if (!chunk.contains(tile)) continue;
+        chunk.setTileId(tile, palette.idOf(palette.byName(name)!));
+      }
+      return chunk;
+    }();
     final painter = ChunkPainter(
       grid: grid,
       tileWidth: 16,
       tileHeight: 16,
-      sources: set.sources(direct.palette, seed: 42),
-      dualGrid: set.dualGrid(direct.palette),
+      sources: procedural.tileset.sources(palette, seed: procedural.seed),
+      dualGrid: procedural.tileset.dualGrid(palette),
     );
 
+    var checked = 0;
     for (final coord in procedural.loadedChunks) {
+      final neighboursLoaded = [(-1, 0), (0, -1), (-1, -1)].every(
+        (d) => procedural.loadedChunks.contains(coord.translate(d.$1, d.$2)),
+      );
+      if (!neighboursLoaded) continue;
       final painted = procedural.paintedChunk(coord)!;
       final expected = painter.paint(chunkAt(coord), (int x, int y) {
         final tile = TileCoord(x, y);
         return chunkAt(grid.chunkOf(tile)).tileIdAt(tile);
       }, 0);
-      final neighboursLoaded = [(-1, 0), (0, -1), (-1, -1)].every(
-        (d) => procedural.loadedChunks.contains(coord.translate(d.$1, d.$2)),
-      );
-      if (!neighboursLoaded) continue;
       expect(painted.mesh.length, expected.mesh.length, reason: '$coord');
       for (var i = 0; i < painted.mesh.length; i++) {
         expect(
@@ -381,7 +383,22 @@ void main() {
           reason: '$coord, sprite $i',
         );
       }
+      checked++;
     }
+    expect(checked, greaterThan(0));
+  }
+
+  testWithFlameGame("with transitions, chunks draw their neighbours' edge "
+      'tiles', (game) async {
+    final procedural = ProceduralMap(
+      seed: 42,
+      generator: _generator(),
+      tileset: await blended(),
+      chunkSize: 16,
+    );
+    await game.world.ensureAdd(procedural);
+    await _settle(game, procedural);
+    expectPaintedAsGenerated(procedural);
   });
 
   group('queries', () {
@@ -721,6 +738,182 @@ void main() {
       expect(seen(), first);
       // Each spot's numbers are a sequence, not one number repeated.
       expect(first.values.where((n) => n[0] != n[1]), isNotEmpty);
+    });
+  });
+
+  group('edits', () {
+    final grid = ChunkGrid(16);
+
+    /// Where dirt is in [procedural]'s atlas.
+    Rect dirtSource(ProceduralMap procedural) {
+      final palette = ChunkGenerator.paletteFor(
+        procedural.generator,
+        procedural.tileset.tiles.keys,
+      );
+      return procedural.tileset
+          .sources(palette, seed: procedural.seed)
+          .frameRect(palette.idOf(_dirt), 0);
+    }
+
+    /// A tile of [type] in a loaded chunk of [procedural].
+    TileCoord loadedTileOf(ProceduralMap procedural, TileType type) =>
+        procedural.loadedChunks
+            .expand((c) => [for (var i = 0; i < 256; i++) grid.tileAt(c, i)])
+            .firstWhere((coord) => procedural.tileAtCoord(coord) == type);
+
+    test('setTile changes queries right away, anywhere', () {
+      final procedural = map();
+      const coord = TileCoord(1000, -1000);
+      final before = procedural.tileAtCoord(coord.translate(1, 0));
+      procedural.setTile(coord, _dirt);
+      expect(procedural.tileAtCoord(coord), _dirt);
+      expect(procedural.tileAt(procedural.positionOf(coord)), _dirt);
+      expect(procedural.tileAtCoord(coord.translate(1, 0)), before);
+      expect(procedural.edits.tiles, {coord: 'dirt'});
+    });
+
+    for (final cacheSize in [128, 0]) {
+      testWithFlameGame('edits stay when chunks unload and load again, '
+          'with a cache of $cacheSize', (game) async {
+        final procedural = map(
+          streaming: StreamingOptions(cacheSize: cacheSize),
+        );
+        await game.world.ensureAdd(procedural);
+        await _settle(game, procedural);
+
+        // One tile while its chunk is loaded, one while it's away.
+        final loaded = loadedTileOf(procedural, _grass);
+        procedural.setTile(loaded, _dirt);
+        game.update(0);
+        expect(procedural.sourceRectAt(loaded), dirtSource(procedural));
+
+        game.camera.viewfinder.position = Vector2(256.0 * 100, 0);
+        await _settle(game, procedural);
+        expect(procedural.loadedChunks, isNot(contains(grid.chunkOf(loaded))));
+        final away = loaded.translate(1, 1);
+        procedural.setTile(away, _dirt);
+
+        game.camera.viewfinder.position = Vector2.zero();
+        await _settle(game, procedural);
+        expect(procedural.tileAtCoord(loaded), _dirt);
+        expect(procedural.sourceRectAt(loaded), dirtSource(procedural));
+        expect(procedural.tileAtCoord(away), _dirt);
+        expect(procedural.sourceRectAt(away), dirtSource(procedural));
+      });
+    }
+
+    testWithFlameGame('edits a new map starts with are applied', (game) async {
+      final first = map();
+      const coords = [TileCoord(3, 4), TileCoord(-40, 7), TileCoord(500, 0)];
+      for (final coord in coords) {
+        first.setTile(coord, _dirt);
+      }
+
+      final second = ProceduralMap(
+        seed: 42,
+        generator: _generator(),
+        tileset: tileset(),
+        chunkSize: 16,
+        edits: first.edits,
+      );
+      for (final coord in coords) {
+        expect(second.tileAtCoord(coord), _dirt, reason: '$coord');
+      }
+      await game.world.ensureAdd(second);
+      await _settle(game, second);
+      expect(second.sourceRectAt(coords.first), dirtSource(second));
+    });
+
+    test('rejects tile types the map does not have', () {
+      const lava = TileType('lava');
+      expect(
+        () => map().setTile(const TileCoord(0, 0), lava),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.message,
+            'message',
+            contains('is not in the tileset or any biome'),
+          ),
+        ),
+      );
+
+      final edits = WorldEdits();
+      recordTile(edits, const TileCoord(2, 3), 'lava');
+      expect(
+        () => ProceduralMap(
+          seed: 42,
+          generator: _generator(),
+          tileset: tileset(),
+          edits: edits,
+        ),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.message,
+            'message',
+            contains('changes tile (2, 3) to a tile type that is not in'),
+          ),
+        ),
+      );
+    });
+
+    testWithFlameGame('setTile updates transitions, also in the chunks that '
+        'draw the edge of the changed one', (game) async {
+      final procedural = ProceduralMap(
+        seed: 42,
+        generator: _generator(),
+        tileset: await blended(),
+        chunkSize: 16,
+      );
+      await game.world.ensureAdd(procedural);
+      await _settle(game, procedural);
+
+      // Flip tiles in chunk (0, 0): its last column and row are drawn by the
+      // chunks right of and below it too.
+      for (final coord in const [
+        TileCoord(15, 15),
+        TileCoord(15, 3),
+        TileCoord(4, 15),
+        TileCoord(0, 0),
+        TileCoord(7, 8),
+      ]) {
+        final flipped = procedural.tileAtCoord(coord) == _water
+            ? _grass
+            : _water;
+        procedural.setTile(coord, flipped);
+      }
+      game.update(0);
+      expectPaintedAsGenerated(procedural);
+    });
+
+    testWithGame('setTile updates hitboxes', _CollisionGame.new, (game) async {
+      final procedural = map(collision: true);
+      await game.world.ensureAdd(procedural);
+      await _settle(game, procedural);
+      await game.ready();
+
+      /// The hitboxes of [coord]'s chunk that cover its centre.
+      Iterable<ShapeHitbox> covering(TileCoord coord) {
+        final centre = procedural.positionOf(coord) + Vector2.all(8);
+        return [
+          for (final solid in procedural.children.whereType<SolidTiles>())
+            if (solid.chunk == grid.chunkOf(coord))
+              for (final hitbox in solid.children.whereType<ShapeHitbox>())
+                if (hitbox.containsPoint(centre)) hitbox,
+        ];
+      }
+
+      final dry = loadedTileOf(procedural, _grass);
+      final wet = loadedTileOf(procedural, _water);
+      expect(covering(dry), isEmpty);
+      expect(covering(wet), hasLength(1));
+
+      procedural
+        ..setTile(dry, _water)
+        ..setTile(wet, _grass);
+      game.update(0);
+      await game.ready();
+      expect(covering(dry), hasLength(1));
+      expect(covering(wet), isEmpty);
     });
   });
 

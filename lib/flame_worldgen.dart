@@ -13,6 +13,7 @@ export 'src/core/generation/world_generator.dart' show WorldGenerator;
 export 'src/core/noise/noise_field.dart'
     show DomainWarp, NoiseBasis, NoiseField, NoiseFunction;
 export 'src/core/tile_type.dart';
+export 'src/core/world_edits.dart' show WorldEdits;
 export 'src/procedural_map.dart';
 export 'src/render/autotile.dart' show Autotile;
 export 'src/render/tile_sprite.dart' show TileSprite;

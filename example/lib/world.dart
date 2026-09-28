@@ -95,11 +95,18 @@ const _waterFrames = 4;
 
 /// The terrain pairs that blend into each other, (upper, lower). Dirt roads
 /// aren't a terrain, so they keep hard edges.
+///
+/// Every terrain blends into every lower one, so ponds dug anywhere get
+/// smooth shores.
 final _transitions = [
   (sand, water),
+  (grass, water),
   (grass, sand),
+  (forestFloor, water),
   (forestFloor, sand),
   (forestFloor, grass),
+  (stone, water),
+  (stone, sand),
   (stone, grass),
   (stone, forestFloor),
 ];

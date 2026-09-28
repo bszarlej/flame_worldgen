@@ -18,6 +18,7 @@ import 'core/random.dart';
 import 'core/tile_palette.dart';
 import 'core/tile_rects.dart';
 import 'core/tile_type.dart';
+import 'core/world_edits.dart';
 import 'render/chunk_painter.dart';
 import 'render/tile_sources.dart';
 import 'render/tileset.dart';
@@ -64,6 +65,9 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   ///
   /// If you sort objects by [priority], give the map a lower one, so it's
   /// drawn below them.
+  ///
+  /// Pass saved [edits] to restore the changes a game made to this world.
+  /// Throws if they use a tile type that isn't in the tileset or any biome.
   ProceduralMap({
     required this.seed,
     required this.generator,
@@ -71,6 +75,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     int chunkSize = 32,
     StreamingOptions? streaming,
     this.collision = false,
+    WorldEdits? edits,
     this.onChunkLoaded,
     this.onChunkUnloaded,
     CameraComponent? camera,
@@ -80,7 +85,21 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
        _camera = camera,
        _palette = ChunkGenerator.paletteFor(generator, tileset.tiles.keys),
        _chunkPixels = tileset.tileSize * chunkSize.toDouble(),
-       _cache = ChunkCache(streaming.cacheSize);
+       _cache = ChunkCache(streaming.cacheSize),
+       edits = edits ?? WorldEdits() {
+    for (final MapEntry(key: coord, value: name) in this.edits.tiles.entries) {
+      final type = _palette.byName(name);
+      if (type == null) {
+        throw ArgumentError.value(
+          name,
+          'edits',
+          'changes tile (${coord.x}, ${coord.y}) to a tile type that is not in '
+              'the tileset or any biome',
+        );
+      }
+      _editTile(coord, _palette.idOf(type));
+    }
+  }
 
   /// The world seed.
   final int seed;
@@ -101,6 +120,9 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   /// child for every solid tile type in it.
   final bool collision;
 
+  /// The changes made with [setTile].
+  final WorldEdits edits;
+
   /// Called when a chunk is loaded, during [update] and before the chunk is
   /// first rendered.
   final void Function(Chunk chunk)? onChunkLoaded;
@@ -119,6 +141,15 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   late final TileSources _sources;
   late final ChunkPainter _painter;
   final _loaded = <ChunkCoord, _LoadedChunk>{};
+
+  /// The tile ids of [edits], by chunk and then by local index.
+  final _editedTiles = <ChunkCoord, Map<int, int>>{};
+
+  /// Loaded chunks whose sprites are out of date after [setTile].
+  final _repaint = <ChunkCoord>{};
+
+  /// Loaded chunks whose hitboxes are out of date after [setTile].
+  final _rebuildSolids = <ChunkCoord>{};
 
   /// Chunks that aren't loaded, from the streamer and from queries.
   final ChunkCache _cache;
@@ -158,8 +189,14 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   TileType tileAt(Vector2 position) => tileAtCoord(tileCoordAt(position));
 
   /// Returns the tile at [coord]. See [tileAt].
-  TileType tileAtCoord(TileCoord coord) =>
-      _palette[_chunkData(coord).tileIdAt(coord)];
+  TileType tileAtCoord(TileCoord coord) {
+    final chunk = grid.chunkOf(coord);
+    // Loaded chunks already have their edits.
+    final id = _loaded.containsKey(chunk)
+        ? null
+        : _editedTiles[chunk]?[grid.localIndex(coord)];
+    return _palette[id ?? _chunkData(coord).tileIdAt(coord)];
+  }
 
   /// Returns the biome under [position], in the map's coordinates. See
   /// [tileAt].
@@ -184,6 +221,56 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
       position.x / tile.x - 0.5,
       position.y / tile.y - 0.5,
     );
+  }
+
+  /// Changes the tile at [coord] to [type].
+  ///
+  /// The change is recorded in [edits], so it stays when the chunk unloads
+  /// and loads again. Works anywhere, even where no chunk is loaded. A loaded
+  /// chunk shows the new tile, with its transitions and hitboxes, from the
+  /// next [update]. Queries return it right away.
+  ///
+  /// Objects on the tile stay where they are.
+  ///
+  /// Throws if [type] isn't in the tileset or any biome.
+  void setTile(TileCoord coord, TileType type) {
+    if (!_palette.contains(type)) {
+      throw ArgumentError.value(
+        type,
+        'type',
+        'is not in the tileset or any biome. Add it to Tileset(tiles: ...)',
+      );
+    }
+    final id = _palette.idOf(type);
+    recordTile(edits, coord, type.name);
+    _editTile(coord, id);
+
+    final chunk = grid.chunkOf(coord);
+    final loaded = _loaded[chunk];
+    if (loaded == null) return;
+    final index = grid.localIndex(coord);
+    final previous = loaded.data.tiles[index];
+    if (previous == id) return;
+    loaded.data.tiles[index] = id;
+
+    _repaint.add(chunk);
+    // Hitboxes are grouped by tile type, so water to stone changes them too.
+    if (_solid[previous] || _solid[id]) _rebuildSolids.add(chunk);
+    // In a dual grid, the chunks right of and below this one draw its last
+    // column and row.
+    if (_painter.dualGrid != null) {
+      final last = grid.size - 1;
+      final origin = grid.origin(chunk);
+      final right = coord.x - origin.x == last;
+      final bottom = coord.y - origin.y == last;
+      if (right) _repaint.add(chunk.translate(1, 0));
+      if (bottom) _repaint.add(chunk.translate(0, 1));
+      if (right && bottom) _repaint.add(chunk.translate(1, 1));
+    }
+  }
+
+  void _editTile(TileCoord coord, int id) {
+    (_editedTiles[grid.chunkOf(coord)] ??= {})[grid.localIndex(coord)] = id;
   }
 
   /// Returns the tile under [position], in the map's coordinates.
@@ -307,6 +394,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   void update(double dt) {
     _time += dt;
     _animate();
+    _applyEdits();
 
     final streamer = _streamer;
     final visible = _activeCamera.visibleWorldRect;
@@ -361,7 +449,32 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     }
   }
 
+  /// Repaints the chunks and rebuilds the hitboxes that [setTile] changed.
+  void _applyEdits() {
+    for (final coord in _repaint) {
+      final chunk = _loaded[coord];
+      chunk?.painted = _painter.paint(chunk.data, _tileIdAt, _time);
+    }
+    _repaint.clear();
+    if (collision) {
+      for (final coord in _rebuildSolids) {
+        final chunk = _loaded[coord];
+        if (chunk == null) continue;
+        removeAll(chunk.solids);
+        chunk.solids = _solidTiles(chunk.data);
+        addAll(chunk.solids);
+      }
+    }
+    _rebuildSolids.clear();
+  }
+
   void _load(ChunkData data) {
+    final edited = _editedTiles[data.coord];
+    if (edited != null) {
+      for (final MapEntry(key: index, value: id) in edited.entries) {
+        data.tiles[index] = id;
+      }
+    }
     final tile = tileset.tileSize;
     final origin = data.origin;
     final chunk = _LoadedChunk(

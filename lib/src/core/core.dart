@@ -18,3 +18,4 @@ export 'random.dart';
 export 'tile_palette.dart';
 export 'tile_rects.dart';
 export 'tile_type.dart';
+export 'world_edits.dart';

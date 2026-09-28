@@ -141,7 +141,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     final data = _chunks.generate(coord);
     final tile = tileset.tileSize;
     final origin = data.origin;
-    final batch = SpriteBatch(tileset.image);
+    final batch = SpriteBatch(tileset.atlas);
     for (var index = 0; index < grid.area; index++) {
       final x = origin.x + index % grid.size;
       final y = origin.y + index ~/ grid.size;

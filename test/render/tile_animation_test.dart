@@ -19,11 +19,8 @@ void main() {
     image = await generateImage(64, 16);
   });
 
-  Tileset tileset(TileSprite water) => Tileset(
-    image: image,
-    tileSize: Vector2(16, 8),
-    tiles: {_water: water},
-  );
+  Tileset tileset(TileSprite water) =>
+      Tileset(image: image, tileSize: Vector2(16, 8), tiles: {_water: water});
 
   test('shows each frame for stepTime seconds, then starts over', () {
     final sources = tileset(

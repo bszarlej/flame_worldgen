@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui';
 
 import 'package:flame/extensions.dart';
@@ -61,8 +62,11 @@ class RoadPass extends GenerationPass {
 }
 
 // How the world looks. Until the example has a real tileset, the sprite sheet
-// is drawn in code. Row 0 has one coloured square per tile type, then the
-// grass variants. Row 1 has the frames of the water animation.
+// is drawn in code:
+//
+// * Row 0: one coloured square per tile type, then the grass variants.
+// * Row 1: the frames of the water animation.
+// * Rows 2 to 5: a 4 × 4 block of transition tiles per terrain pair.
 
 const tileSize = 16;
 
@@ -80,6 +84,17 @@ final _colors = {
 const _grassVariants = [Color(0xFF629C3D), Color(0xFF78B34F)];
 
 const _waterFrames = 4;
+
+/// The terrain pairs that blend into each other, (upper, lower). Dirt roads
+/// aren't a terrain, so they keep hard edges.
+final _transitions = [
+  (sand, water),
+  (grass, sand),
+  (forestFloor, sand),
+  (forestFloor, grass),
+  (stone, grass),
+  (stone, forestFloor),
+];
 
 /// Draws the sprite sheet and returns the tileset that uses it.
 Tileset createTileset() {
@@ -121,9 +136,13 @@ Tileset createTileset() {
     canvas.restore();
   }
 
+  for (final (index, (upper, _)) in _transitions.indexed) {
+    _drawTransitionBlock(canvas, _colors[upper]!, index * 4, 2);
+  }
+
   final image = recorder.endRecording().toImageSync(
-    tileSize * colors.length,
-    tileSize * 2,
+    tileSize * max(colors.length, _transitions.length * 4),
+    tileSize * 6,
   );
 
   final types = _colors.keys.toList();
@@ -147,5 +166,46 @@ Tileset createTileset() {
           _ => TileSprite.at(index, 0),
         },
     },
+    transitions: [
+      for (final (index, (upper, lower)) in _transitions.indexed)
+        Autotile.dualGrid(upper: upper, lower: lower, at: (index * 4, 2)),
+    ],
   );
+}
+
+/// Draws the 16 transition tiles for a terrain of [color] in the dual-grid
+/// layout, with its top left tile at ([column], [row]). The lower terrain is
+/// left transparent.
+///
+/// Each pixel blends the 4 corners of its tile, 1 for corners of this
+/// terrain and 0 for the others, and is drawn if the blend is at least one
+/// half. Two corners give a straight edge, one a rounded corner. A thin
+/// darker band marks the edge.
+void _drawTransitionBlock(Canvas canvas, Color color, int column, int row) {
+  const layout = [12, 13, 0, 3, 8, 1, 14, 5, 15, 4, 11, 2, 9, 10, 7, 6];
+  final fill = Paint()..color = color;
+  final edge = Paint()
+    ..color = Color.lerp(color, const Color(0xFF000000), 0.2)!;
+  for (var mask = 0; mask < 16; mask++) {
+    final index = layout[mask];
+    final left = (column + index % 4) * tileSize;
+    final top = (row + index ~/ 4) * tileSize;
+    double corner(int bit) => mask & bit != 0 ? 1 : 0;
+    for (var y = 0; y < tileSize; y++) {
+      for (var x = 0; x < tileSize; x++) {
+        final u = (x + 0.5) / tileSize;
+        final v = (y + 0.5) / tileSize;
+        final blend =
+            corner(8) * (1 - u) * (1 - v) +
+            corner(4) * u * (1 - v) +
+            corner(2) * (1 - u) * v +
+            corner(1) * u * v;
+        if (blend < 0.5) continue;
+        canvas.drawRect(
+          Rect.fromLTWH(left + x.toDouble(), top + y.toDouble(), 1, 1),
+          blend < 0.6 ? edge : fill,
+        );
+      }
+    }
+  }
 }

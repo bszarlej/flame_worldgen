@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui';
 
@@ -8,13 +9,14 @@ import 'dart:ui';
 /// changing one sprite's source rect only writes 4 numbers. (`drawAtlas`
 /// and Flame's `SpriteBatch` convert every sprite on every frame.)
 class ChunkMesh {
-  /// Creates a mesh with room for [capacity] sprites.
+  /// Creates a mesh with room for [capacity] sprites. It grows when more are
+  /// added.
   ChunkMesh(int capacity)
     : _transforms = Float32List(capacity * 4),
       _rects = Float32List(capacity * 4);
 
-  final Float32List _transforms;
-  final Float32List _rects;
+  Float32List _transforms;
+  Float32List _rects;
   var _length = 0;
 
   /// The number of sprites.
@@ -23,6 +25,7 @@ class ChunkMesh {
   /// Adds a sprite showing [source] of the atlas with its top left at
   /// ([x], [y]), and returns its index.
   int add(Rect source, double x, double y) {
+    if (_length * 4 == _rects.length) _grow();
     final index = _length++;
     final offset = index * 4;
     _transforms
@@ -55,6 +58,10 @@ class ChunkMesh {
     );
   }
 
+  /// Where the top left of the sprite at [index] is drawn.
+  Offset positionAt(int index) =>
+      Offset(_transforms[index * 4 + 2], _transforms[index * 4 + 3]);
+
   /// Draws every sprite from [atlas].
   void render(Canvas canvas, Image atlas, Paint paint) {
     if (_length == 0) return;
@@ -67,5 +74,11 @@ class ChunkMesh {
       null,
       paint,
     );
+  }
+
+  void _grow() {
+    final capacity = max(16, _length * 2);
+    _transforms = Float32List(capacity * 4)..setAll(0, _transforms);
+    _rects = Float32List(capacity * 4)..setAll(0, _rects);
   }
 }

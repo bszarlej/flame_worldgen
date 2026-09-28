@@ -225,8 +225,22 @@ transitions: [
 ],
 ```
 
-`upper` is drawn on top of `lower`. When you change a tile at runtime, the
-transitions around it update too.
+`upper` is drawn on top of `lower`, so transition tiles can be transparent
+where `lower` shows, and animated water stays animated under a sand shore.
+The block uses the layout of [jess::codes' dual-grid
+tilesets](https://github.com/jess-hammer/dual-grid-tilemap-system-unity); the
+`Autotile.dualGrid` API docs show which corners each tile covers.
+
+A tile can border several terrains at once. The transitions put terrains in
+order, lowest first, and each is drawn over the ones below it. Tile types
+that aren't in any transition, such as roads, keep hard edges. So do two
+terrains without a transition between them. In debug mode, you get a
+warning for that.
+
+With transitions, the map is drawn on a grid offset by half a tile, so tiles
+are drawn in quarters where needed. `tileSize` must be an even number of
+pixels. When you change a tile at runtime, the transitions around it update
+too.
 
 ## Objects
 

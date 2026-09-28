@@ -4,6 +4,8 @@ import 'package:flame/extensions.dart';
 
 import '../core/tile_palette.dart';
 import '../core/tile_type.dart';
+import 'autotile.dart';
+import 'dual_grid.dart';
 import 'tile_sources.dart';
 import 'tile_sprite.dart';
 
@@ -23,17 +25,23 @@ import 'tile_sprite.dart';
 /// Every tile type the world can contain needs an entry: the biomes' ground
 /// tiles and anything that passes or the player place. Only tile types in
 /// [tiles] can be placed.
+///
+/// Without [transitions], terrains meet at hard square edges. See
+/// [Autotile.dualGrid] for smooth ones.
 class Tileset {
   /// Creates a tileset that cuts [image] into tiles of [tileSize] pixels.
   ///
-  /// Throws if [tileSize] isn't a positive whole number of pixels or if a
-  /// sprite is invalid, such as outside the image.
+  /// Throws if [tileSize] isn't a positive whole number of pixels, if a
+  /// sprite is invalid, such as outside the image, or if the transitions
+  /// are invalid.
   Tileset({
     required this.image,
     required Vector2 tileSize,
     required Map<TileType, TileSprite> tiles,
+    List<Autotile> transitions = const [],
   }) : tileSize = tileSize.clone(),
-       tiles = Map.unmodifiable(tiles) {
+       tiles = Map.unmodifiable(tiles),
+       transitions = List.unmodifiable(transitions) {
     if (tileSize.x <= 0 ||
         tileSize.y <= 0 ||
         tileSize.x != tileSize.x.roundToDouble() ||
@@ -47,6 +55,7 @@ class Tileset {
     for (final MapEntry(key: type, value: sprite) in tiles.entries) {
       _checkSprite(type, sprite);
     }
+    _terrains = _checkTransitions();
   }
 
   /// The image the tiles are cut from.
@@ -58,6 +67,12 @@ class Tileset {
 
   /// How each tile type is drawn.
   final Map<TileType, TileSprite> tiles;
+
+  /// The smooth transitions between terrains.
+  final List<Autotile> transitions;
+
+  /// The terrains of [transitions], lowest first.
+  late final List<TileType> _terrains;
 
   int get _width => tileSize.x.toInt();
   int get _height => tileSize.y.toInt();
@@ -116,6 +131,84 @@ class Tileset {
       stepTimes: stepTimes,
       seed: seed,
     );
+  }
+
+  /// Returns the terrains and transitions for the tile ids of [palette], or
+  /// null if there are no transitions.
+  DualGrid? dualGrid(TilePalette palette) {
+    if (transitions.isEmpty) return null;
+    return DualGrid(
+      [for (final type in palette.types) type.name],
+      [for (final type in palette.types) _terrains.indexOf(type)],
+      {
+        for (final DualGridAutotile(:upper, :lower, at: (column, row))
+            in transitions.cast<DualGridAutotile>())
+          (palette.idOf(upper), palette.idOf(lower)): [
+            for (final index in dualGridLayout)
+              _atlasRect(column + index % 4, row + index ~/ 4),
+          ],
+      },
+    );
+  }
+
+  List<TileType> _checkTransitions() {
+    if (transitions.isEmpty) return const [];
+    if (_width.isOdd || _height.isOdd) {
+      throw ArgumentError.value(
+        tileSize,
+        'tileSize',
+        'must be an even number of pixels with transitions, because tiles '
+            'are drawn in quarters',
+      );
+    }
+    final pairs = <(TileType, TileType)>[];
+    for (final transition in transitions) {
+      switch (transition) {
+        case DualGridAutotile(
+          :final upper,
+          :final lower,
+          at: (final column, final row),
+        ):
+          if (upper == lower) {
+            throw ArgumentError.value(
+              transition,
+              'transitions',
+              'needs two different terrains',
+            );
+          }
+          for (final terrain in [upper, lower]) {
+            if (!tiles.containsKey(terrain)) {
+              throw ArgumentError.value(
+                transition,
+                'transitions',
+                "${terrain.name} has no sprite. Add it to the Tileset's tiles",
+              );
+            }
+          }
+          if (pairs.contains((upper, lower)) ||
+              pairs.contains((lower, upper))) {
+            throw ArgumentError.value(
+              transition,
+              'transitions',
+              'There are two transitions between ${upper.name} and '
+                  '${lower.name}',
+            );
+          }
+          if (column < 0 ||
+              row < 0 ||
+              column + 4 > _columns ||
+              row + 4 > _rows) {
+            throw ArgumentError.value(
+              transition,
+              'transitions',
+              'The 4 × 4 block at ($column, $row) is outside the image, which '
+                  'has $_columns × $_rows tiles of $_width × $_height pixels',
+            );
+          }
+          pairs.add((upper, lower));
+      }
+    }
+    return orderTerrains(pairs);
   }
 
   void _checkSprite(TileType type, TileSprite sprite) {

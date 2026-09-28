@@ -4,7 +4,8 @@ import 'package:flame/game.dart';
 import 'package:flame_test/flame_test.dart';
 import 'package:flame_worldgen/flame_worldgen.dart';
 import 'package:flame_worldgen/src/core/core.dart'
-    show ChunkGenerator, ChunkGrid;
+    show ChunkData, ChunkGenerator, ChunkGrid;
+import 'package:flame_worldgen/src/render/chunk_painter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _water = TileType('water');
@@ -227,9 +228,7 @@ void main() {
     expect(loaded, 36);
   });
 
-  testWithFlameGame('animated tiles all show the current frame', (
-    game,
-  ) async {
+  testWithFlameGame('animated tiles all show the current frame', (game) async {
     const frame0 = Rect.fromLTWH(1, 1, 16, 16);
     const frame1 = Rect.fromLTWH(37, 1, 16, 16);
     const grassRect = Rect.fromLTWH(19, 1, 16, 16);
@@ -281,6 +280,70 @@ void main() {
 
     game.update(0.5);
     expectFrame(frame0);
+  });
+
+  testWithFlameGame("with transitions, chunks draw their neighbours' edge "
+      'tiles', (game) async {
+    final generator = _generator();
+    final set = Tileset(
+      image: await generateImage(128, 64),
+      tileSize: Vector2.all(16),
+      tiles: {
+        _water: const TileSprite.at(0, 0),
+        _grass: const TileSprite.at(1, 0),
+        _dirt: const TileSprite.at(2, 0),
+      },
+      transitions: const [
+        Autotile.dualGrid(upper: _grass, lower: _water, at: (4, 0)),
+      ],
+    );
+    final procedural = ProceduralMap(
+      seed: 42,
+      generator: generator,
+      tileset: set,
+      chunkSize: 16,
+    );
+    await game.world.ensureAdd(procedural);
+    await _settle(game, procedural);
+
+    // Paint each chunk again, knowing every tile, and compare.
+    final grid = ChunkGrid(16);
+    final direct = ChunkGenerator(
+      generator,
+      seed: 42,
+      grid: grid,
+      tiles: set.tiles.keys,
+    );
+    final chunks = <ChunkCoord, ChunkData>{};
+    ChunkData chunkAt(ChunkCoord coord) =>
+        chunks[coord] ??= direct.generate(coord);
+    final painter = ChunkPainter(
+      grid: grid,
+      tileWidth: 16,
+      tileHeight: 16,
+      sources: set.sources(direct.palette, seed: 42),
+      dualGrid: set.dualGrid(direct.palette),
+    );
+
+    for (final coord in procedural.loadedChunks) {
+      final painted = procedural.paintedChunk(coord)!;
+      final expected = painter.paint(chunkAt(coord), (int x, int y) {
+        final tile = TileCoord(x, y);
+        return chunkAt(grid.chunkOf(tile)).tileIdAt(tile);
+      }, 0);
+      final neighboursLoaded = [(-1, 0), (0, -1), (-1, -1)].every(
+        (d) => procedural.loadedChunks.contains(coord.translate(d.$1, d.$2)),
+      );
+      if (!neighboursLoaded) continue;
+      expect(painted.mesh.length, expected.mesh.length, reason: '$coord');
+      for (var i = 0; i < painted.mesh.length; i++) {
+        expect(
+          (painted.mesh.positionAt(i), painted.mesh.sourceAt(i)),
+          (expected.mesh.positionAt(i), expected.mesh.sourceAt(i)),
+          reason: '$coord, sprite $i',
+        );
+      }
+    }
   });
 
   testWithFlameGame('renders, also in debug mode', (game) async {

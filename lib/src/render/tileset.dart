@@ -4,6 +4,7 @@ import 'package:flame/extensions.dart';
 
 import '../core/tile_palette.dart';
 import '../core/tile_type.dart';
+import 'tile_sources.dart';
 import 'tile_sprite.dart';
 
 /// Decides how each [TileType] is drawn, using tiles from one image.
@@ -44,17 +45,7 @@ class Tileset {
       );
     }
     for (final MapEntry(key: type, value: sprite) in tiles.entries) {
-      switch (sprite) {
-        case StaticTileSprite(:final column, :final row):
-          if (column < 0 || row < 0 || column >= _columns || row >= _rows) {
-            throw ArgumentError.value(
-              sprite,
-              '${type.name} sprite',
-              'is outside the image, which has $_columns × $_rows tiles of '
-                  '${tileSize.x.toInt()} × ${tileSize.y.toInt()} pixels',
-            );
-          }
-      }
+      _checkSprite(type, sprite);
     }
   }
 
@@ -81,25 +72,82 @@ class Tileset {
   /// in the image and shows up as thin lines between tiles.
   late final Image atlas = _extrude();
 
-  /// Returns the part of [atlas] to draw for each tile id in [palette].
+  /// Returns which part of [atlas] to draw for each tile id in [palette],
+  /// in the world with [seed].
   ///
   /// Throws if a tile type in [palette] has no sprite.
-  List<Rect> sourceRects(TilePalette palette) => [
-    for (final type in palette.types) _sourceRect(type),
-  ];
-
-  Rect _sourceRect(TileType type) {
-    final sprite = tiles[type];
-    if (sprite == null) {
-      throw ArgumentError.value(
-        type,
-        'type',
-        'has no sprite. Add it to the Tileset\'s tiles',
-      );
+  TileSources sources(TilePalette palette, {required int seed}) {
+    final rects = <List<Rect>>[];
+    final weights = <List<double>?>[];
+    for (final type in palette.types) {
+      switch (tiles[type]) {
+        case null:
+          throw ArgumentError.value(
+            type,
+            'type',
+            "has no sprite. Add it to the Tileset's tiles",
+          );
+        case StaticTileSprite(:final column, :final row):
+          rects.add([_atlasRect(column, row)]);
+          weights.add(null);
+        case VariantTileSprite(:final sprites, weights: final given):
+          rects.add([
+            for (final sprite in sprites.cast<StaticTileSprite>())
+              _atlasRect(sprite.column, sprite.row),
+          ]);
+          var total = 0.0;
+          weights.add([
+            for (var i = 0; i < sprites.length; i++) total += given?[i] ?? 1,
+          ]);
+      }
     }
-    return switch (sprite) {
-      StaticTileSprite(:final column, :final row) => _atlasRect(column, row),
-    };
+    return TileSources(rects, weights, seed: seed);
+  }
+
+  void _checkSprite(TileType type, TileSprite sprite) {
+    switch (sprite) {
+      case StaticTileSprite(:final column, :final row):
+        if (column < 0 || row < 0 || column >= _columns || row >= _rows) {
+          throw ArgumentError.value(
+            sprite,
+            '${type.name} sprite',
+            'is outside the image, which has $_columns × $_rows tiles of '
+                '$_width × $_height pixels',
+          );
+        }
+      case VariantTileSprite(:final sprites, :final weights):
+        if (sprites.isEmpty) {
+          throw ArgumentError.value(
+            sprite,
+            '${type.name} sprite',
+            'needs at least one variant',
+          );
+        }
+        if (weights != null && weights.length != sprites.length) {
+          throw ArgumentError.value(
+            sprite,
+            '${type.name} sprite',
+            'has ${sprites.length} variants but ${weights.length} weights',
+          );
+        }
+        if (weights != null && !weights.every((w) => w > 0 && w.isFinite)) {
+          throw ArgumentError.value(
+            sprite,
+            '${type.name} sprite',
+            'weights must be positive',
+          );
+        }
+        for (final variant in sprites) {
+          if (variant is! StaticTileSprite) {
+            throw ArgumentError.value(
+              sprite,
+              '${type.name} sprite',
+              'variants must be TileSprite.at',
+            );
+          }
+          _checkSprite(type, variant);
+        }
+    }
   }
 
   Rect _atlasRect(int column, int row) => Rect.fromLTWH(

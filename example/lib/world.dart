@@ -74,11 +74,16 @@ final _colors = {
   dirt: Color(0xFF8B5E3C),
 };
 
+/// Slightly darker and lighter grass, drawn now and then among the plain
+/// grass.
+const _grassVariants = [Color(0xFF629C3D), Color(0xFF78B34F)];
+
 /// Draws the sprite sheet and returns the tileset that uses it.
 Tileset createTileset() {
+  final colors = [..._colors.values, ..._grassVariants];
   final recorder = PictureRecorder();
   final canvas = Canvas(recorder);
-  for (final (index, color) in _colors.values.indexed) {
+  for (final (index, color) in colors.indexed) {
     // Plain colours: any pattern inside a tile shimmers when zoomed far out.
     canvas.drawRect(
       Rect.fromLTWH(
@@ -91,16 +96,26 @@ Tileset createTileset() {
     );
   }
   final image = recorder.endRecording().toImageSync(
-    tileSize * _colors.length,
+    tileSize * colors.length,
     tileSize,
   );
 
+  final types = _colors.keys.toList();
   return Tileset(
     image: image,
     tileSize: Vector2.all(tileSize.toDouble()),
     tiles: {
-      for (final (index, type) in _colors.keys.indexed)
-        type: TileSprite.at(index, 0),
+      for (final (index, type) in types.indexed)
+        type: type == grass
+            ? TileSprite.variants(
+                [
+                  TileSprite.at(index, 0),
+                  TileSprite.at(types.length, 0),
+                  TileSprite.at(types.length + 1, 0),
+                ],
+                weights: [8, 1, 1],
+              )
+            : TileSprite.at(index, 0),
     },
   );
 }

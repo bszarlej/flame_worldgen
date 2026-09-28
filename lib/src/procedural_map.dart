@@ -15,6 +15,7 @@ import 'core/generation/scatter.dart';
 import 'core/generation/world_generator.dart';
 import 'core/tile_palette.dart';
 import 'core/tile_type.dart';
+import 'render/tile_sources.dart';
 import 'render/tileset.dart';
 import 'streaming/chunk_range.dart';
 import 'streaming/chunk_streamer.dart';
@@ -88,7 +89,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
 
   final CameraComponent? _camera;
   late final TilePalette _palette;
-  late final List<Rect> _sourceRects;
+  late final TileSources _sources;
   final _loaded = <ChunkCoord, _LoadedChunk>{};
   final _paint = Paint()..filterQuality = FilterQuality.none;
 
@@ -119,7 +120,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   Future<void> onLoad() async {
     _active = true;
     _palette = ChunkGenerator.paletteFor(generator, tileset.tiles.keys);
-    _sourceRects = tileset.sourceRects(_palette);
+    _sources = tileset.sources(_palette, seed: seed);
     _chunkPixels = tileset.tileSize * grid.size.toDouble();
     await _startStreaming();
   }
@@ -211,7 +212,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
       final x = origin.x + index % grid.size;
       final y = origin.y + index ~/ grid.size;
       batch.addTransform(
-        source: _sourceRects[data.tiles[index]],
+        source: _sources.rectAt(data.tiles[index], x, y),
         transform: RSTransform(1, 0, x * tile.x, y * tile.y),
       );
     }

@@ -39,16 +39,15 @@ void main() {
 
   test('maps tile ids to tiles in the padded atlas', () {
     final palette = TilePalette([_water, _grass]);
-    final rects = tileset({
+    final sources = tileset({
       _water: const TileSprite.at(0, 0),
       _grass: const TileSprite.at(3, 1),
-    }).sourceRects(palette);
+    }).sources(palette, seed: 1);
     // Each tile takes 18 × 10 pixels in the atlas: itself plus a 1-pixel
     // border.
-    expect(rects, [
-      const Rect.fromLTWH(1, 1, 16, 8),
-      const Rect.fromLTWH(55, 11, 16, 8),
-    ]);
+    expect(sources.length, 2);
+    expect(sources.rectAt(0, 5, -3), const Rect.fromLTWH(1, 1, 16, 8));
+    expect(sources.rectAt(1, 0, 0), const Rect.fromLTWH(55, 11, 16, 8));
   });
 
   test('the atlas surrounds each tile with a copy of its own edge', () async {
@@ -84,7 +83,9 @@ void main() {
   test('tile types without a sprite throw when resolved', () {
     final palette = TilePalette([_water, _sand]);
     expect(
-      () => tileset({_water: const TileSprite.at(0, 0)}).sourceRects(palette),
+      () => tileset({
+        _water: const TileSprite.at(0, 0),
+      }).sources(palette, seed: 1),
       throwsA(
         isA<ArgumentError>().having(
           (e) => e.message,

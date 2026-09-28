@@ -346,6 +346,102 @@ void main() {
     }
   });
 
+  group('queries', () {
+    // Tiles on both sides of chunk borders, also at negative coords.
+    final coords = [
+      for (var y = -20; y <= 20; y += 5)
+        for (var x = -33; x <= 63; x += 3) TileCoord(x, y),
+    ];
+
+    /// The tile at the centre of [coord].
+    Vector2 centreOf(TileCoord coord) =>
+        Vector2(coord.x * 16.0 + 8, coord.y * 16.0 + 8);
+
+    void expectGenerated(ProceduralMap procedural) {
+      final generator = procedural.generator;
+      final direct = ChunkGenerator(
+        generator,
+        seed: 42,
+        grid: ChunkGrid(16),
+        tiles: tileset().tiles.keys,
+      );
+      for (final coord in coords) {
+        final chunk = direct.generate(ChunkGrid(16).chunkOf(coord));
+        final tile = direct.palette[chunk.tileIdAt(coord)];
+        final biome = generator.biomes[chunk.biomeAt(coord)];
+        expect(procedural.tileAtCoord(coord), tile, reason: '$coord');
+        expect(procedural.tileAt(centreOf(coord)), tile, reason: '$coord');
+        expect(procedural.biomeAtCoord(coord), same(biome), reason: '$coord');
+        expect(
+          procedural.biomeAt(centreOf(coord)),
+          same(biome),
+          reason: '$coord',
+        );
+      }
+    }
+
+    test('tileCoordAt and positionOf convert between pixels and tiles', () {
+      final procedural = map();
+      expect(procedural.tileCoordAt(Vector2(0, 15.9)), const TileCoord(0, 0));
+      expect(procedural.tileCoordAt(Vector2(16, 32)), const TileCoord(1, 2));
+      expect(
+        procedural.tileCoordAt(Vector2(-0.1, -16.1)),
+        const TileCoord(-1, -2),
+      );
+      expect(procedural.positionOf(const TileCoord(-2, 3)), Vector2(-32, 48));
+      final coord = procedural.tileCoordAt(Vector2(-100, 70));
+      expect(procedural.tileCoordAt(procedural.positionOf(coord)), coord);
+    });
+
+    test('work before the map is added, by generating chunks', () {
+      expectGenerated(map());
+    });
+
+    testWithFlameGame('read loaded chunks and generate the others', (
+      game,
+    ) async {
+      final procedural = map();
+      await game.world.ensureAdd(procedural);
+      await _settle(game, procedural);
+      // Chunks -3..2 are loaded, so the coords in chunk 3 aren't.
+      expect(procedural.loadedChunks, contains(const ChunkCoord(-3, -2)));
+      expect(procedural.loadedChunks, isNot(contains(const ChunkCoord(3, 0))));
+      expectGenerated(procedural);
+    });
+
+    test('valueAt evaluates the field anywhere', () {
+      final procedural = map();
+      final elevation = _elevation.sampler(42);
+      for (final coord in coords) {
+        // At the centre of a tile, it's the value the biomes saw.
+        final value = procedural.valueAt(_elevation, centreOf(coord));
+        expect(value, elevation(coord.x.toDouble(), coord.y.toDouble()));
+        expect(
+          procedural.biomeAtCoord(coord).name,
+          value < 0 ? 'ocean' : 'plains',
+        );
+      }
+      // Between tile centres, it's the field in between.
+      expect(
+        procedural.valueAt(_elevation, Vector2(16, 20)),
+        elevation(0.5, 0.75),
+      );
+    });
+
+    test('valueAt rejects fields the generator does not have', () {
+      expect(
+        () => map().valueAt(NoiseField.simplex('heat'), Vector2.zero()),
+        throwsA(
+          isA<ArgumentError>().having(
+            (e) => e.message,
+            'message',
+            contains("is not one of the generator's fields"),
+          ),
+        ),
+      );
+    });
+  });
+
   testWithFlameGame('renders, also in debug mode', (game) async {
     final procedural = map();
     await game.world.ensureAdd(procedural);

@@ -181,6 +181,13 @@ class ChunkGenerator {
   /// For each scatter rule, whether each biome has it.
   late final List<List<bool>> _ruleOwners;
 
+  /// Evaluates [field] at ([x], [y]), in tiles, anywhere in the world. At
+  /// whole numbers, this is the value biome conditions see for that tile.
+  ///
+  /// Throws if [field] isn't one of the generator's fields.
+  double valueAt(NoiseField field, double x, double y) =>
+      _fields.sampleAt(field, x, y);
+
   /// Generates the chunk at [coord].
   ChunkData generate(ChunkCoord coord) {
     final chunk = ChunkData(coord, grid);

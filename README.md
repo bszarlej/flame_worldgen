@@ -288,7 +288,16 @@ final height = map.valueAt(elevation, player.position); // double
 
 final coord = map.tileCoordAt(player.position); // TileCoord
 final topLeft = map.positionOf(coord); // Vector2
+
+// Grid-based code can use tile coords directly.
+final east = map.tileAtCoord(coord.translate(1, 0));
 ```
+
+Queries work anywhere, even far from the camera and before the map is added
+to the game. Loaded chunks answer instantly. Any other chunk is generated on
+the spot, which takes a millisecond or two, and kept in the cache.
+`valueAt` evaluates the field directly and changes smoothly between tiles. At
+a tile's centre, it's the value the biome conditions saw.
 
 ## Collision
 

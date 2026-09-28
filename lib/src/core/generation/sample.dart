@@ -89,7 +89,15 @@ class ChunkFields {
   /// passed to [evaluate].
   ///
   /// Throws if [field] isn't one of the generator's fields.
-  double valueAt(NoiseField field, int index) {
+  double valueAt(NoiseField field, int index) => _values[_slotOf(field)][index];
+
+  /// Evaluates [field] at ([x], [y]), in tiles, anywhere in the world.
+  ///
+  /// Throws if [field] isn't one of the generator's fields.
+  double sampleAt(NoiseField field, double x, double y) =>
+      _samplers[_slotOf(field)](x, y);
+
+  int _slotOf(NoiseField field) {
     final slot = _slots[field.name];
     if (slot == null) {
       throw ArgumentError.value(
@@ -99,7 +107,7 @@ class ChunkFields {
             'WorldGenerator(fields: [...])',
       );
     }
-    return _values[slot][index];
+    return slot;
   }
 }
 

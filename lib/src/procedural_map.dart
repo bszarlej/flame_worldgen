@@ -12,11 +12,13 @@ import 'core/coords.dart';
 import 'core/generation/biome.dart';
 import 'core/generation/scatter.dart';
 import 'core/generation/world_generator.dart';
+import 'core/noise/noise_field.dart';
 import 'core/tile_palette.dart';
 import 'core/tile_type.dart';
 import 'render/chunk_painter.dart';
 import 'render/tile_sources.dart';
 import 'render/tileset.dart';
+import 'streaming/chunk_cache.dart';
 import 'streaming/chunk_range.dart';
 import 'streaming/chunk_streamer.dart';
 import 'streaming/create_executor.dart';
@@ -61,8 +63,11 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     this.onChunkUnloaded,
     CameraComponent? camera,
   }) : grid = ChunkGrid(chunkSize),
-       streaming = streaming ?? StreamingOptions(),
-       _camera = camera;
+       streaming = streaming ??= StreamingOptions(),
+       _camera = camera,
+       _palette = ChunkGenerator.paletteFor(generator, tileset.tiles.keys),
+       _chunkPixels = tileset.tileSize * chunkSize.toDouble(),
+       _cache = ChunkCache(streaming.cacheSize);
 
   /// The world seed.
   final int seed;
@@ -88,10 +93,22 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   final void Function(Chunk chunk)? onChunkUnloaded;
 
   final CameraComponent? _camera;
-  late final TilePalette _palette;
+  final TilePalette _palette;
   late final TileSources _sources;
   late final ChunkPainter _painter;
   final _loaded = <ChunkCoord, _LoadedChunk>{};
+
+  /// Chunks that aren't loaded, from the streamer and from queries.
+  final ChunkCache _cache;
+
+  /// Generates chunks for queries outside the loaded area, and evaluates
+  /// fields for [valueAt].
+  late final _queries = ChunkGenerator(
+    generator,
+    seed: seed,
+    grid: grid,
+    tiles: tileset.tiles.keys,
+  );
   final _paint = Paint()..filterQuality = FilterQuality.none;
 
   /// Seconds since the map started, the clock of every tile animation.
@@ -110,6 +127,69 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   var _active = false;
 
   CameraComponent get _activeCamera => _camera ?? game.camera;
+
+  /// Returns the tile under [position], in the map's coordinates.
+  ///
+  /// Works anywhere, even before the map is added to the game. If the tile's
+  /// chunk isn't loaded, it's generated on the spot, which takes a
+  /// millisecond or two, and kept in the cache so it's not generated twice.
+  TileType tileAt(Vector2 position) => tileAtCoord(tileCoordAt(position));
+
+  /// Returns the tile at [coord]. See [tileAt].
+  TileType tileAtCoord(TileCoord coord) =>
+      _palette[_chunkData(coord).tileIdAt(coord)];
+
+  /// Returns the biome under [position], in the map's coordinates. See
+  /// [tileAt].
+  Biome biomeAt(Vector2 position) => biomeAtCoord(tileCoordAt(position));
+
+  /// Returns the biome at [coord]. See [tileAt].
+  Biome biomeAtCoord(TileCoord coord) =>
+      generator.biomes[_chunkData(coord).biomeAt(coord)];
+
+  /// Returns the value of [field] at [position], in the map's coordinates,
+  /// between -1 and 1.
+  ///
+  /// The field is evaluated directly, so this works anywhere without
+  /// generating a chunk, and changes smoothly as [position] moves. At the
+  /// centre of a tile, it's the value the biome conditions saw.
+  ///
+  /// Throws if [field] isn't one of the generator's fields.
+  double valueAt(NoiseField field, Vector2 position) {
+    final tile = tileset.tileSize;
+    return _queries.valueAt(
+      field,
+      position.x / tile.x - 0.5,
+      position.y / tile.y - 0.5,
+    );
+  }
+
+  /// Returns the tile under [position], in the map's coordinates.
+  TileCoord tileCoordAt(Vector2 position) {
+    final tile = tileset.tileSize;
+    return TileCoord(
+      (position.x / tile.x).floor(),
+      (position.y / tile.y).floor(),
+    );
+  }
+
+  /// Returns the top-left corner of [coord], in the map's coordinates.
+  Vector2 positionOf(TileCoord coord) {
+    final tile = tileset.tileSize;
+    return Vector2(coord.x * tile.x, coord.y * tile.y);
+  }
+
+  /// The chunk that holds [tile]: loaded, cached, or generated now.
+  ChunkData _chunkData(TileCoord tile) {
+    final coord = grid.chunkOf(tile);
+    final loaded = _loaded[coord];
+    if (loaded != null) return loaded.data;
+    final cached = _cache.get(coord);
+    if (cached != null) return cached;
+    final chunk = _queries.generate(coord);
+    _cache.put(chunk);
+    return chunk;
+  }
 
   /// The chunks currently loaded.
   @visibleForTesting
@@ -136,12 +216,11 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   PaintedChunk? paintedChunk(ChunkCoord coord) => _loaded[coord]?.painted;
 
   /// The size of one chunk, in pixels.
-  late final Vector2 _chunkPixels;
+  final Vector2 _chunkPixels;
 
   @override
   Future<void> onLoad() async {
     _active = true;
-    _palette = ChunkGenerator.paletteFor(generator, tileset.tiles.keys);
     _sources = tileset.sources(_palette, seed: seed);
     _painter = ChunkPainter(
       grid: grid,
@@ -154,7 +233,6 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
       for (var id = 0; id < _sources.length; id++)
         _sources.isAnimated(id) ? _sources.frameAt(id, _time) : -1,
     ];
-    _chunkPixels = tileset.tileSize * grid.size.toDouble();
     await _startStreaming();
   }
 
@@ -188,6 +266,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
       _streamer = ChunkStreamer(
         executor: executor,
         options: streaming,
+        cache: _cache,
         onLoaded: _load,
         onUnloaded: _unload,
       );

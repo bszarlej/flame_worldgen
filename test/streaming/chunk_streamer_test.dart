@@ -1,5 +1,6 @@
 import 'package:flame_worldgen/src/core/chunk_data.dart';
 import 'package:flame_worldgen/src/core/coords.dart';
+import 'package:flame_worldgen/src/streaming/chunk_cache.dart';
 import 'package:flame_worldgen/src/streaming/chunk_executor.dart';
 import 'package:flame_worldgen/src/streaming/chunk_range.dart';
 import 'package:flame_worldgen/src/streaming/chunk_streamer.dart';
@@ -189,6 +190,23 @@ void main() {
     final submitted = executor.submitted.length;
     chunks.update(const ChunkRange(0, 0, 0, 0));
     expect(executor.submitted.skip(submitted), [const ChunkCoord(0, 0)]);
+  });
+
+  test('loads chunks that others put in a shared cache', () {
+    final cache = ChunkCache(8)
+      ..put(ChunkData(const ChunkCoord(0, 0), ChunkGrid(4)));
+    executor = _FakeExecutor();
+    events = [];
+    ChunkStreamer(
+      executor: executor,
+      options: StreamingOptions(loadMargin: 0),
+      cache: cache,
+      onLoaded: (chunk) => events.add('+${chunk.coord.x},${chunk.coord.y}'),
+      onUnloaded: (chunk) {},
+    ).update(origin);
+    expect(events, ['+0,0']);
+    expect(executor.submitted, isEmpty);
+    expect(cache.length, 0);
   });
 
   test('a cache size of 0 keeps nothing', () {

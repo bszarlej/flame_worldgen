@@ -2,6 +2,7 @@ import 'dart:collection';
 
 import '../core/chunk_data.dart';
 import '../core/coords.dart';
+import 'chunk_cache.dart';
 import 'chunk_executor.dart';
 import 'chunk_range.dart';
 import 'streaming_options.dart';
@@ -21,12 +22,18 @@ import 'streaming_options.dart';
 /// [onLoaded] and [onUnloaded] are called synchronously during [update].
 class ChunkStreamer {
   /// Creates a streamer that generates chunks with [executor].
+  ///
+  /// Chunks that aren't loaded are kept in [cache], which defaults to one of
+  /// `options.cacheSize` chunks. Pass your own to share it, for example with
+  /// code that generates chunks outside the streamer.
   ChunkStreamer({
     required this.executor,
     required this.onLoaded,
     required this.onUnloaded,
     StreamingOptions? options,
-  }) : options = options ?? StreamingOptions();
+    ChunkCache? cache,
+  }) : options = options ??= StreamingOptions(),
+       cache = cache ?? ChunkCache(options.cacheSize);
 
   /// Generates the chunks.
   final ChunkExecutor executor;
@@ -37,15 +44,14 @@ class ChunkStreamer {
   /// Called when a chunk is unloaded.
   final void Function(ChunkData chunk) onUnloaded;
 
-  /// The margins and cache size.
+  /// The margins.
   final StreamingOptions options;
+
+  /// Chunks that were generated but aren't loaded.
+  final ChunkCache cache;
 
   final _loaded = <ChunkCoord, ChunkData>{};
   final _inFlight = <ChunkCoord>{};
-
-  // Map literals keep insertion order: the first entry is the least recently
-  // used.
-  final _cache = <ChunkCoord, ChunkData>{};
 
   /// The loaded chunks.
   Map<ChunkCoord, ChunkData> get loaded => UnmodifiableMapView(_loaded);
@@ -54,7 +60,7 @@ class ChunkStreamer {
   int get inFlight => _inFlight.length;
 
   /// The number of chunks in the cache.
-  int get cached => _cache.length;
+  int get cached => cache.length;
 
   /// Loads and unloads chunks for a view that shows [visible].
   void update(ChunkRange visible) {
@@ -66,7 +72,7 @@ class ChunkStreamer {
       if (wanted.contains(chunk.coord) && !_loaded.containsKey(chunk.coord)) {
         _load(chunk);
       } else {
-        _store(chunk);
+        cache.put(chunk);
       }
     }
 
@@ -77,13 +83,13 @@ class ChunkStreamer {
     for (final coord in unload) {
       final chunk = _loaded.remove(coord)!;
       onUnloaded(chunk);
-      _store(chunk);
+      cache.put(chunk);
     }
 
     final missing = <ChunkCoord>[];
     for (final coord in wanted.coords) {
       if (_loaded.containsKey(coord) || _inFlight.contains(coord)) continue;
-      final cached = _cache.remove(coord);
+      final cached = cache.take(coord);
       if (cached != null) {
         _load(cached);
       } else {
@@ -108,7 +114,7 @@ class ChunkStreamer {
       onUnloaded(chunk);
     }
     _loaded.clear();
-    _cache.clear();
+    cache.clear();
     _inFlight.clear();
     executor.dispose();
   }
@@ -116,14 +122,5 @@ class ChunkStreamer {
   void _load(ChunkData chunk) {
     _loaded[chunk.coord] = chunk;
     onLoaded(chunk);
-  }
-
-  void _store(ChunkData chunk) {
-    if (options.cacheSize == 0) return;
-    _cache.remove(chunk.coord);
-    _cache[chunk.coord] = chunk;
-    while (_cache.length > options.cacheSize) {
-      _cache.remove(_cache.keys.first);
-    }
   }
 }

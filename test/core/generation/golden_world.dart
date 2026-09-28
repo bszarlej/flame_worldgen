@@ -1,6 +1,4 @@
-import 'package:flame_worldgen/flame_worldgen.dart';
-import 'package:flame_worldgen/src/core/coords.dart';
-import 'package:flame_worldgen/src/core/generation/world_generator.dart';
+import 'package:flame_worldgen/src/core/core.dart';
 
 // The world used by the ASCII golden tests. Changing anything here changes
 // the goldens.

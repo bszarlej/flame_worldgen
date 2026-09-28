@@ -1,4 +1,4 @@
-import 'package:flame_worldgen/flame_worldgen.dart';
+import 'package:flame_worldgen/src/core/core.dart';
 import 'package:test/test.dart';
 
 class _GameTile extends TileType {

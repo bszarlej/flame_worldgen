@@ -7,6 +7,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chunk.dart';
+import 'collision/solid_tiles.dart';
 import 'core/chunk_data.dart';
 import 'core/coords.dart';
 import 'core/generation/biome.dart';
@@ -14,6 +15,7 @@ import 'core/generation/scatter.dart';
 import 'core/generation/world_generator.dart';
 import 'core/noise/noise_field.dart';
 import 'core/tile_palette.dart';
+import 'core/tile_rects.dart';
 import 'core/tile_type.dart';
 import 'render/chunk_painter.dart';
 import 'render/tile_sources.dart';
@@ -51,6 +53,9 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   /// [chunkSize] is the number of tiles along each side of a chunk and must
   /// be a power of two. [camera] defaults to the game's camera.
   ///
+  /// With [collision], solid tiles get hitboxes, see [SolidTiles]. Your game
+  /// or world needs Flame's [HasCollisionDetection] mixin.
+  ///
   /// The generator is sent to a worker isolate, so it must not reference
   /// anything that can't cross isolates, such as images or components.
   ProceduralMap({
@@ -59,6 +64,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     required this.tileset,
     int chunkSize = 32,
     StreamingOptions? streaming,
+    this.collision = false,
     this.onChunkLoaded,
     this.onChunkUnloaded,
     CameraComponent? camera,
@@ -84,6 +90,10 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   /// How chunks are loaded and unloaded.
   final StreamingOptions streaming;
 
+  /// Whether solid tiles get hitboxes. Each loaded chunk adds a [SolidTiles]
+  /// child for every solid tile type in it.
+  final bool collision;
+
   /// Called when a chunk is loaded, during [update] and before the chunk is
   /// first rendered.
   final void Function(Chunk chunk)? onChunkLoaded;
@@ -94,6 +104,11 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
 
   final CameraComponent? _camera;
   final TilePalette _palette;
+
+  /// Whether each tile id is solid.
+  late final List<bool> _solid = [
+    for (final type in _palette.types) type.solid,
+  ];
   late final TileSources _sources;
   late final ChunkPainter _painter;
   final _loaded = <ChunkCoord, _LoadedChunk>{};
@@ -221,6 +236,11 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   @override
   Future<void> onLoad() async {
     _active = true;
+    assert(
+      !collision || findParent<HasCollisionDetection>() != null,
+      'ProceduralMap(collision: true) needs HasCollisionDetection on the '
+      'game or the world. Without it, the hitboxes never collide.',
+    );
     _sources = tileset.sources(_palette, seed: seed);
     _painter = ChunkPainter(
       grid: grid,
@@ -349,6 +369,10 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
       ),
     );
     _loaded[data.coord] = chunk;
+    if (collision) {
+      chunk.solids = _solidTiles(data);
+      addAll(chunk.solids);
+    }
 
     // In a dual grid, the chunks right of and below this one draw some of
     // its tiles. Until now, they used their own edge tiles in their place.
@@ -370,7 +394,36 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
 
   void _unload(ChunkData data) {
     final chunk = _loaded.remove(data.coord);
-    if (chunk != null) onChunkUnloaded?.call(chunk);
+    if (chunk == null) return;
+    removeAll(chunk.solids);
+    onChunkUnloaded?.call(chunk);
+  }
+
+  /// The hitboxes of the solid tiles in [data], one component per tile type.
+  List<SolidTiles> _solidTiles(ChunkData data) {
+    final tile = tileset.tileSize;
+    final origin = data.origin;
+    return [
+      for (final MapEntry(key: id, value: rects) in mergeTiles(
+        data,
+        (id) => _solid[id],
+      ).entries)
+        SolidTiles(
+          type: _palette[id],
+          chunk: data.coord,
+          position: Vector2(origin.x * tile.x, origin.y * tile.y),
+          size: _chunkPixels.clone(),
+          rects: [
+            for (final rect in rects)
+              Rect.fromLTWH(
+                rect.x * tile.x,
+                rect.y * tile.y,
+                rect.width * tile.x,
+                rect.height * tile.y,
+              ),
+          ],
+        ),
+    ];
   }
 
   /// The chunks that [visible] overlaps.
@@ -400,6 +453,9 @@ class _LoadedChunk implements Chunk {
 
   /// The chunk's sprites. Painted again when a neighbour loads.
   PaintedChunk painted;
+
+  /// The chunk's hitboxes, if the map has collision.
+  List<SolidTiles> solids = const [];
 
   @override
   final Rect bounds;

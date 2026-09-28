@@ -2,6 +2,7 @@
 library;
 
 export 'src/chunk.dart';
+export 'src/collision/solid_tiles.dart';
 export 'src/core/coords.dart' show ChunkCoord, TileCoord;
 export 'src/core/generation/biome.dart';
 export 'src/core/generation/generation_pass.dart'

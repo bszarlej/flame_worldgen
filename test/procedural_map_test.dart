@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import 'package:flame/collisions.dart';
+import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flame_test/flame_test.dart';
 import 'package:flame_worldgen/flame_worldgen.dart';
@@ -8,7 +10,7 @@ import 'package:flame_worldgen/src/core/core.dart'
 import 'package:flame_worldgen/src/render/chunk_painter.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-const _water = TileType('water');
+const _water = TileType('water', solid: true);
 const _grass = TileType('grass');
 const _dirt = TileType('dirt');
 
@@ -25,6 +27,24 @@ WorldGenerator _generator() => WorldGenerator(
     ),
   ],
 );
+
+class _CollisionGame extends FlameGame with HasCollisionDetection {}
+
+/// Records what it collides with.
+class _Probe extends PositionComponent with CollisionCallbacks {
+  _Probe(Vector2 position)
+    : super(position: position, size: Vector2.all(4), anchor: Anchor.center) {
+    add(RectangleHitbox());
+  }
+
+  final touched = <PositionComponent>[];
+
+  @override
+  void onCollisionStart(Set<Vector2> points, PositionComponent other) {
+    super.onCollisionStart(points, other);
+    touched.add(other);
+  }
+}
 
 /// Updates [game] until [map] has every chunk it wants.
 ///
@@ -60,6 +80,7 @@ void main() {
   ProceduralMap map({
     WorldGenerator? generator,
     StreamingOptions? streaming,
+    bool collision = false,
     void Function(Chunk chunk)? onChunkLoaded,
     void Function(Chunk chunk)? onChunkUnloaded,
   }) => ProceduralMap(
@@ -68,6 +89,7 @@ void main() {
     tileset: tileset(),
     chunkSize: 16,
     streaming: streaming,
+    collision: collision,
     onChunkLoaded: onChunkLoaded,
     onChunkUnloaded: onChunkUnloaded,
   );
@@ -436,6 +458,131 @@ void main() {
             (e) => e.message,
             'message',
             contains("is not one of the generator's fields"),
+          ),
+        ),
+      );
+    });
+  });
+
+  group('collision', () {
+    final grid = ChunkGrid(16);
+
+    Iterable<SolidTiles> solidsOf(ProceduralMap map) =>
+        map.children.whereType<SolidTiles>();
+
+    testWithGame(
+      'solid tiles get passive hitboxes, per chunk and type',
+      _CollisionGame.new,
+      (game) async {
+        final procedural = map(collision: true);
+        await game.world.ensureAdd(procedural);
+        await _settle(game, procedural);
+        await game.ready();
+
+        final solids = solidsOf(procedural).toList();
+        expect(solids, isNotEmpty);
+        expect(solids.map((s) => s.type).toSet(), {_water});
+
+        for (final chunk in procedural.loadedChunks) {
+          final hitboxes = [
+            for (final solid in solidsOf(procedural))
+              if (solid.chunk == chunk)
+                for (final hitbox in solid.children.whereType<ShapeHitbox>())
+                  hitbox,
+          ];
+          for (final hitbox in hitboxes) {
+            expect(hitbox.collisionType, CollisionType.passive);
+            expect(hitbox.isSolid, isTrue);
+          }
+          final origin = grid.origin(chunk);
+          for (var y = origin.y; y < origin.y + 16; y++) {
+            for (var x = origin.x; x < origin.x + 16; x++) {
+              final centre = Vector2(x * 16.0 + 8, y * 16.0 + 8);
+              final covering = hitboxes.where((h) => h.containsPoint(centre));
+              expect(
+                covering.length,
+                procedural.tileAtCoord(TileCoord(x, y)).solid ? 1 : 0,
+                reason: '($x, $y)',
+              );
+            }
+          }
+        }
+      },
+    );
+
+    testWithGame('hitboxes come and go with their chunks', _CollisionGame.new, (
+      game,
+    ) async {
+      final procedural = map(collision: true);
+      await game.world.ensureAdd(procedural);
+      await _settle(game, procedural);
+
+      for (final x in [100, 0]) {
+        game.camera.viewfinder.position = Vector2(256.0 * x, 0);
+        await _settle(game, procedural);
+        await game.ready();
+        final chunks = solidsOf(procedural).map((s) => s.chunk).toSet();
+        expect(chunks, isNotEmpty);
+        expect(procedural.loadedChunks.toSet().containsAll(chunks), isTrue);
+      }
+
+      game.world.remove(procedural);
+      await game.ready();
+      expect(solidsOf(procedural), isEmpty);
+      expect(game.collisionDetection.items, isEmpty);
+
+      await game.world.ensureAdd(procedural);
+      await _settle(game, procedural);
+      await game.ready();
+      expect(solidsOf(procedural), isNotEmpty);
+    });
+
+    testWithGame(
+      'other components collide with solid tiles',
+      _CollisionGame.new,
+      (game) async {
+        final procedural = map(collision: true);
+        await game.world.ensureAdd(procedural);
+        await _settle(game, procedural);
+        await game.ready();
+
+        /// The centre of a loaded tile of [type].
+        Vector2 centreOfA(TileType type) {
+          final coord = procedural.loadedChunks
+              .expand((c) => [for (var i = 0; i < 256; i++) grid.tileAt(c, i)])
+              .firstWhere((coord) => procedural.tileAtCoord(coord) == type);
+          return procedural.positionOf(coord) + Vector2.all(8);
+        }
+
+        // The probes are smaller than a tile, so they're inside the tile
+        // hitboxes and don't cross their edges.
+        final wet = _Probe(centreOfA(_water));
+        final dry = _Probe(centreOfA(_grass));
+        await game.world.ensureAddAll([wet, dry]);
+        game.update(0);
+        expect(wet.touched, hasLength(1));
+        final solid = wet.touched.single as SolidTiles;
+        expect(solid.type, _water);
+        expect(dry.touched, isEmpty);
+      },
+    );
+
+    testWithFlameGame('without collision, there are no hitboxes', (game) async {
+      final procedural = map();
+      await game.world.ensureAdd(procedural);
+      await _settle(game, procedural);
+      await game.ready();
+      expect(solidsOf(procedural), isEmpty);
+    });
+
+    testWithFlameGame('collision needs HasCollisionDetection', (game) async {
+      await expectLater(
+        () => game.world.ensureAdd(map(collision: true)),
+        throwsA(
+          isA<AssertionError>().having(
+            (e) => e.message,
+            'message',
+            contains('needs HasCollisionDetection'),
           ),
         ),
       );

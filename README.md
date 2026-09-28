@@ -309,8 +309,25 @@ ProceduralMap(
 ```
 
 Solid tiles in each chunk are merged into as few rectangles as possible and
-added as `RectangleHitbox`es when the chunk loads. Your game needs Flame's
-`HasCollisionDetection` mixin.
+added as passive `RectangleHitbox`es when the chunk loads. Your game or world
+needs Flame's `HasCollisionDetection` mixin.
+
+Each chunk gets one `SolidTiles` component per solid tile type, so your
+collision callbacks can tell what they hit:
+
+```dart
+@override
+void onCollisionStart(Set<Vector2> points, PositionComponent other) {
+  super.onCollisionStart(points, other);
+  if (other is SolidTiles) {
+    if (other.type.hasTag('liquid')) splash();
+    stop();
+  }
+}
+```
+
+The hitboxes are solid, so a component that's entirely inside one still
+collides with it.
 
 ## Edits and saving
 

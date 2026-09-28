@@ -16,4 +16,5 @@ export 'hash.dart';
 export 'noise/noise_field.dart';
 export 'random.dart';
 export 'tile_palette.dart';
+export 'tile_rects.dart';
 export 'tile_type.dart';

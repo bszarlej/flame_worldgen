@@ -227,6 +227,62 @@ void main() {
     expect(loaded, 36);
   });
 
+  testWithFlameGame('animated tiles all show the current frame', (
+    game,
+  ) async {
+    const frame0 = Rect.fromLTWH(1, 1, 16, 16);
+    const frame1 = Rect.fromLTWH(37, 1, 16, 16);
+    const grassRect = Rect.fromLTWH(19, 1, 16, 16);
+
+    final water = <TileCoord>[];
+    final grass = <TileCoord>[];
+    final procedural = ProceduralMap(
+      seed: 42,
+      generator: _generator(),
+      tileset: Tileset(
+        image: image,
+        tileSize: Vector2.all(16),
+        tiles: {
+          _water: const TileSprite.animated([(0, 0), (2, 0)], stepTime: 0.5),
+          _grass: const TileSprite.at(1, 0),
+          _dirt: const TileSprite.at(2, 0),
+        },
+      ),
+      chunkSize: 16,
+      onChunkLoaded: (chunk) {
+        for (final coord in chunk.coords) {
+          (chunk.tileAt(coord) == _water ? water : grass).add(coord);
+        }
+      },
+      onChunkUnloaded: (chunk) {
+        water.removeWhere(chunk.contains);
+        grass.removeWhere(chunk.contains);
+      },
+    );
+    await game.world.ensureAdd(procedural);
+    await _settle(game, procedural);
+    expect(water, isNotEmpty);
+    expect(grass, isNotEmpty);
+
+    void expectFrame(Rect frame) {
+      expect(water.map(procedural.sourceRectAt).toSet(), {frame});
+      expect(grass.map(procedural.sourceRectAt).toSet(), {grassRect});
+    }
+
+    expectFrame(frame0);
+    game.update(0.5);
+    expectFrame(frame1);
+
+    // Chunks that load now start at the current frame.
+    game.camera.viewfinder.position = Vector2(256.0 * 100, 0);
+    await _settle(game, procedural);
+    expect(water, isNotEmpty);
+    expectFrame(frame1);
+
+    game.update(0.5);
+    expectFrame(frame0);
+  });
+
   testWithFlameGame('renders, also in debug mode', (game) async {
     final procedural = map();
     await game.world.ensureAdd(procedural);

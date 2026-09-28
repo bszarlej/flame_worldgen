@@ -35,7 +35,7 @@ void main() {
     final counts = <Rect, int>{};
     for (var y = -50; y < 50; y++) {
       for (var x = -50; x < 50; x++) {
-        final rect = sources.rectAt(grassId, x, y);
+        final rect = sources.rectAt(grassId, x, y, 0);
         counts[rect] = (counts[rect] ?? 0) + 1;
       }
     }
@@ -74,7 +74,7 @@ void main() {
     ]);
     List<Rect> pattern(int seed) => [
       for (var x = 0; x < 64; x++)
-        tileset(grass).sources(palette, seed: seed).rectAt(grassId, x, 7),
+        tileset(grass).sources(palette, seed: seed).rectAt(grassId, x, 7, 0),
     ];
 
     expect(pattern(42), pattern(42));

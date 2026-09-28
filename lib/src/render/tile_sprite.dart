@@ -8,6 +8,9 @@
 ///   [TileSprite.at(1, 1), TileSprite.at(0, 5), TileSprite.at(1, 5)],
 ///   weights: [10, 1, 1],
 /// )
+///
+/// // Four frames, each shown for 0.3 seconds.
+/// TileSprite.animated([(0, 3), (1, 3), (2, 3), (3, 3)], stepTime: 0.3)
 /// ```
 sealed class TileSprite {
   const TileSprite._();
@@ -27,6 +30,15 @@ sealed class TileSprite {
     List<TileSprite> sprites, {
     List<double>? weights,
   }) = VariantTileSprite;
+
+  /// An animation that shows each of [frames], given as (column, row) of the
+  /// tileset image, for [stepTime] seconds, then starts over.
+  ///
+  /// All tiles of a type show the same frame at the same time.
+  const factory TileSprite.animated(
+    List<(int, int)> frames, {
+    required double stepTime,
+  }) = AnimatedTileSprite;
 }
 
 /// A [TileSprite] that always shows the same tile.
@@ -58,4 +70,20 @@ final class VariantTileSprite extends TileSprite {
 
   @override
   String toString() => 'TileSprite.variants($sprites, weights: $weights)';
+}
+
+/// A [TileSprite] that cycles through several tiles.
+final class AnimatedTileSprite extends TileSprite {
+  /// Creates an animation that shows each of [frames] for [stepTime]
+  /// seconds.
+  const AnimatedTileSprite(this.frames, {required this.stepTime}) : super._();
+
+  /// The (column, row) of each frame in the tileset image, in tiles.
+  final List<(int, int)> frames;
+
+  /// How long each frame is shown, in seconds.
+  final double stepTime;
+
+  @override
+  String toString() => 'TileSprite.animated($frames, stepTime: $stepTime)';
 }

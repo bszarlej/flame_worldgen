@@ -4,7 +4,6 @@ import 'dart:ui';
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
-import 'package:flame/sprite.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chunk.dart';
@@ -15,6 +14,7 @@ import 'core/generation/scatter.dart';
 import 'core/generation/world_generator.dart';
 import 'core/tile_palette.dart';
 import 'core/tile_type.dart';
+import 'render/chunk_mesh.dart';
 import 'render/tile_sources.dart';
 import 'render/tileset.dart';
 import 'streaming/chunk_range.dart';
@@ -93,6 +93,12 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   final _loaded = <ChunkCoord, _LoadedChunk>{};
   final _paint = Paint()..filterQuality = FilterQuality.none;
 
+  /// Seconds since the map started, the clock of every tile animation.
+  var _time = 0.0;
+
+  /// The frame each animated tile id shows, indexed by tile id.
+  late final List<int> _frames;
+
   /// Loads and unloads chunks. Null while the worker is starting and after
   /// the map is removed.
   ChunkStreamer? _streamer;
@@ -113,6 +119,14 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   @visibleForTesting
   bool get isSettled => _streamer?.inFlight == 0;
 
+  /// The part of the tileset's atlas drawn for [tile], which must be in a
+  /// loaded chunk.
+  @visibleForTesting
+  Rect sourceRectAt(TileCoord tile) {
+    final chunk = _loaded[grid.chunkOf(tile)]!;
+    return chunk.mesh.sourceAt(grid.localIndex(tile));
+  }
+
   /// The size of one chunk, in pixels.
   late final Vector2 _chunkPixels;
 
@@ -121,6 +135,10 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     _active = true;
     _palette = ChunkGenerator.paletteFor(generator, tileset.tiles.keys);
     _sources = tileset.sources(_palette, seed: seed);
+    _frames = [
+      for (var id = 0; id < _sources.length; id++)
+        _sources.isAnimated(id) ? _sources.frameAt(id, _time) : -1,
+    ];
     _chunkPixels = tileset.tileSize * grid.size.toDouble();
     await _startStreaming();
   }
@@ -165,6 +183,9 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
 
   @override
   void update(double dt) {
+    _time += dt;
+    _animate();
+
     final streamer = _streamer;
     final visible = _activeCamera.visibleWorldRect;
     if (streamer == null || visible.isEmpty) return;
@@ -176,7 +197,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     final visible = _activeCamera.visibleWorldRect;
     for (final chunk in _loaded.values) {
       if (chunk.bounds.overlaps(visible)) {
-        chunk.batch.render(canvas, paint: _paint);
+        chunk.mesh.render(canvas, tileset.atlas, _paint);
       }
     }
   }
@@ -204,23 +225,45 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     }
   }
 
+  /// Shows the current frame of every animation whose frame changed.
+  void _animate() {
+    for (final id in _sources.animatedIds) {
+      final frame = _sources.frameAt(id, _time);
+      if (frame == _frames[id]) continue;
+      _frames[id] = frame;
+      final source = _sources.frameRect(id, frame);
+      for (final chunk in _loaded.values) {
+        final indices = chunk.animated[id];
+        if (indices == null) continue;
+        for (final index in indices) {
+          chunk.mesh.setSource(index, source);
+        }
+      }
+    }
+  }
+
   void _load(ChunkData data) {
     final tile = tileset.tileSize;
     final origin = data.origin;
-    final batch = SpriteBatch(tileset.atlas);
+    final mesh = ChunkMesh(grid.area);
+    final animated = <int, List<int>>{};
     for (var index = 0; index < grid.area; index++) {
       final x = origin.x + index % grid.size;
       final y = origin.y + index ~/ grid.size;
-      batch.addTransform(
-        source: _sources.rectAt(data.tiles[index], x, y),
-        transform: RSTransform(1, 0, x * tile.x, y * tile.y),
+      final id = data.tiles[index];
+      final sprite = mesh.add(
+        _sources.rectAt(id, x, y, _time),
+        x * tile.x,
+        y * tile.y,
       );
+      if (_sources.isAnimated(id)) (animated[id] ??= []).add(sprite);
     }
     final chunk = _LoadedChunk(
       data,
       _palette,
       generator.biomes,
-      batch,
+      mesh,
+      animated,
       Rect.fromLTWH(
         origin.x * tile.x,
         origin.y * tile.y,
@@ -250,12 +293,22 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
 }
 
 class _LoadedChunk implements Chunk {
-  _LoadedChunk(this.data, this._palette, this._biomes, this.batch, this.bounds);
+  _LoadedChunk(
+    this.data,
+    this._palette,
+    this._biomes,
+    this.mesh,
+    this.animated,
+    this.bounds,
+  );
 
   final ChunkData data;
   final TilePalette _palette;
   final List<Biome> _biomes;
-  final SpriteBatch batch;
+  final ChunkMesh mesh;
+
+  /// The mesh indices of the animated tiles, by tile id.
+  final Map<int, List<int>> animated;
 
   @override
   final Rect bounds;

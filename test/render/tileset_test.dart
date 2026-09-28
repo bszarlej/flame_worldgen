@@ -46,8 +46,8 @@ void main() {
     // Each tile takes 18 × 10 pixels in the atlas: itself plus a 1-pixel
     // border.
     expect(sources.length, 2);
-    expect(sources.rectAt(0, 5, -3), const Rect.fromLTWH(1, 1, 16, 8));
-    expect(sources.rectAt(1, 0, 0), const Rect.fromLTWH(55, 11, 16, 8));
+    expect(sources.rectAt(0, 5, -3, 0), const Rect.fromLTWH(1, 1, 16, 8));
+    expect(sources.rectAt(1, 0, 0, 0), const Rect.fromLTWH(55, 11, 16, 8));
   });
 
   test('the atlas surrounds each tile with a copy of its own edge', () async {

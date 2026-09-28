@@ -27,7 +27,7 @@ class Tileset {
   /// Creates a tileset that cuts [image] into tiles of [tileSize] pixels.
   ///
   /// Throws if [tileSize] isn't a positive whole number of pixels or if a
-  /// sprite lies outside the image.
+  /// sprite is invalid, such as outside the image.
   Tileset({
     required this.image,
     required Vector2 tileSize,
@@ -79,6 +79,7 @@ class Tileset {
   TileSources sources(TilePalette palette, {required int seed}) {
     final rects = <List<Rect>>[];
     final weights = <List<double>?>[];
+    final stepTimes = <double?>[];
     for (final type in palette.types) {
       switch (tiles[type]) {
         case null:
@@ -90,6 +91,7 @@ class Tileset {
         case StaticTileSprite(:final column, :final row):
           rects.add([_atlasRect(column, row)]);
           weights.add(null);
+          stepTimes.add(null);
         case VariantTileSprite(:final sprites, weights: final given):
           rects.add([
             for (final sprite in sprites.cast<StaticTileSprite>())
@@ -99,9 +101,21 @@ class Tileset {
           weights.add([
             for (var i = 0; i < sprites.length; i++) total += given?[i] ?? 1,
           ]);
+          stepTimes.add(null);
+        case AnimatedTileSprite(:final frames, :final stepTime):
+          rects.add([
+            for (final (column, row) in frames) _atlasRect(column, row),
+          ]);
+          weights.add(null);
+          stepTimes.add(stepTime);
       }
     }
-    return TileSources(rects, weights, seed: seed);
+    return TileSources(
+      rects: rects,
+      cumulativeWeights: weights,
+      stepTimes: stepTimes,
+      seed: seed,
+    );
   }
 
   void _checkSprite(TileType type, TileSprite sprite) {
@@ -146,6 +160,24 @@ class Tileset {
             );
           }
           _checkSprite(type, variant);
+        }
+      case AnimatedTileSprite(:final frames, :final stepTime):
+        if (frames.isEmpty) {
+          throw ArgumentError.value(
+            sprite,
+            '${type.name} sprite',
+            'needs at least one frame',
+          );
+        }
+        if (!(stepTime > 0 && stepTime.isFinite)) {
+          throw ArgumentError.value(
+            sprite,
+            '${type.name} sprite',
+            'stepTime must be a positive number of seconds',
+          );
+        }
+        for (final (column, row) in frames) {
+          _checkSprite(type, TileSprite.at(column, row));
         }
     }
   }

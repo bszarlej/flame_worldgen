@@ -61,7 +61,8 @@ class RoadPass extends GenerationPass {
 }
 
 // How the world looks. Until the example has a real tileset, the sprite sheet
-// is drawn in code: one coloured square per tile type, in a row.
+// is drawn in code. Row 0 has one coloured square per tile type, then the
+// grass variants. Row 1 has the frames of the water animation.
 
 const tileSize = 16;
 
@@ -78,44 +79,73 @@ final _colors = {
 /// grass.
 const _grassVariants = [Color(0xFF629C3D), Color(0xFF78B34F)];
 
+const _waterFrames = 4;
+
 /// Draws the sprite sheet and returns the tileset that uses it.
 Tileset createTileset() {
+  const size = tileSize * 1.0;
   final colors = [..._colors.values, ..._grassVariants];
   final recorder = PictureRecorder();
   final canvas = Canvas(recorder);
   for (final (index, color) in colors.indexed) {
-    // Plain colours: any pattern inside a tile shimmers when zoomed far out.
     canvas.drawRect(
-      Rect.fromLTWH(
-        index * tileSize.toDouble(),
-        0,
-        tileSize.toDouble(),
-        tileSize.toDouble(),
-      ),
+      Rect.fromLTWH(index * size, 0, size, size),
       Paint()..color = color,
     );
   }
+
+  // Water with two light ripples that drift right, 3 pixels per frame.
+  final ripple = Paint()..color = const Color(0xFF5B93D1);
+  for (var frame = 0; frame < _waterFrames; frame++) {
+    final left = frame * size;
+    canvas
+      ..save()
+      ..clipRect(Rect.fromLTWH(left, size, size, size))
+      ..drawRect(
+        Rect.fromLTWH(left, size, size, size),
+        Paint()..color = _colors[water]!,
+      );
+    for (final (x, y) in [(2, 4), (9, 11)]) {
+      for (final wrap in [0, -tileSize]) {
+        canvas.drawRect(
+          Rect.fromLTWH(
+            left + (x + frame * 3) % tileSize + wrap,
+            size + y,
+            5,
+            1,
+          ),
+          ripple,
+        );
+      }
+    }
+    canvas.restore();
+  }
+
   final image = recorder.endRecording().toImageSync(
     tileSize * colors.length,
-    tileSize,
+    tileSize * 2,
   );
 
   final types = _colors.keys.toList();
   return Tileset(
     image: image,
-    tileSize: Vector2.all(tileSize.toDouble()),
+    tileSize: Vector2.all(size),
     tiles: {
       for (final (index, type) in types.indexed)
-        type: type == grass
-            ? TileSprite.variants(
-                [
-                  TileSprite.at(index, 0),
-                  TileSprite.at(types.length, 0),
-                  TileSprite.at(types.length + 1, 0),
-                ],
-                weights: [8, 1, 1],
-              )
-            : TileSprite.at(index, 0),
+        type: switch (type) {
+          water => TileSprite.animated([
+            for (var frame = 0; frame < _waterFrames; frame++) (frame, 1),
+          ], stepTime: 0.4),
+          grass => TileSprite.variants(
+            [
+              TileSprite.at(index, 0),
+              TileSprite.at(types.length, 0),
+              TileSprite.at(types.length + 1, 0),
+            ],
+            weights: [8, 1, 1],
+          ),
+          _ => TileSprite.at(index, 0),
+        },
     },
   );
 }

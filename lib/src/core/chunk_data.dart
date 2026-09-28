@@ -51,7 +51,7 @@ class ChunkData {
   final Uint8List biomes;
 
   /// Where objects go in this chunk.
-  final List<ScatterSpot> spots = [];
+  final List<SpotData> spots = [];
 
   /// The top-left tile of the chunk.
   TileCoord get origin => grid.origin(coord);

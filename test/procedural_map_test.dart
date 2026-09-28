@@ -46,6 +46,20 @@ class _Probe extends PositionComponent with CollisionCallbacks {
   }
 }
 
+/// A spawned object, holding on to its spot and an image, which can't cross
+/// isolates.
+class _Marker extends PositionComponent {
+  _Marker(this.spot, this.image)
+    : numbers = [spot.random.nextInt(1 << 30), spot.random.nextInt(1 << 30)],
+      super(position: spot.position);
+
+  final ScatterSpot spot;
+  final Image image;
+
+  /// The first two numbers of the spot's random sequence.
+  final List<int> numbers;
+}
+
 /// Updates [game] until [map] has every chunk it wants.
 ///
 /// Chunks are generated on a worker isolate, so they arrive some time after
@@ -199,8 +213,10 @@ void main() {
         );
       }
       expect(
-        chunk.spots.map((s) => (s.x, s.y)),
-        expected.spots.map((s) => (s.x, s.y)),
+        chunk.spots.map((s) => (s.rule.name, s.position, s.coord)),
+        expected.spots.map(
+          (s) => ('bushes', Vector2(s.x * 16, s.y * 16), s.coord),
+        ),
       );
     }
 
@@ -586,6 +602,125 @@ void main() {
           ),
         ),
       );
+    });
+  });
+
+  group('objects', () {
+    /// A generator whose plains spawn a [_Marker] on each spot that [keep]
+    /// accepts.
+    ///
+    /// The spawn function holds an image, which can't be sent to the worker
+    /// isolate, so these tests also check that it isn't.
+    WorldGenerator spawning({bool Function(ScatterSpot spot)? keep}) =>
+        WorldGenerator(
+          fields: [_elevation],
+          biomes: [
+            Biome('ocean', ground: _water, when: (s) => s[_elevation] < 0),
+            Biome(
+              'plains',
+              ground: _grass,
+              scatter: [
+                Scatter(
+                  'bushes',
+                  density: 0.05,
+                  spawn: (spot) {
+                    if (!(keep?.call(spot) ?? true)) return null;
+                    return _Marker(spot, image);
+                  },
+                ),
+              ],
+            ),
+          ],
+        );
+
+    Iterable<_Marker> markersIn(FlameGame game) =>
+        game.world.children.whereType<_Marker>();
+
+    testWithFlameGame('spawns a component per spot into the map\'s parent, '
+        'and removes them with their chunks', (game) async {
+      final spots = <ChunkCoord, List<ScatterSpot>>{};
+      final procedural = map(
+        generator: spawning(),
+        onChunkLoaded: (chunk) => spots[chunk.coord] = chunk.spots,
+        onChunkUnloaded: (chunk) => spots.remove(chunk.coord),
+      );
+      await game.world.ensureAdd(procedural);
+      await _settle(game, procedural);
+      await game.ready();
+
+      final markers = markersIn(game).toList();
+      final expected = spots.values.expand((s) => s).toList();
+      expect(expected, isNotEmpty);
+      expect(
+        markers.map((m) => m.position).toSet(),
+        expected.map((s) => s.position).toSet(),
+      );
+      expect(markers, hasLength(expected.length));
+      for (final marker in markers) {
+        expect(marker.spot.rule, isA<Scatter>());
+        expect(marker.spot.biome.name, 'plains');
+        expect(procedural.tileAt(marker.position), _grass);
+      }
+
+      game.camera.viewfinder.position = Vector2(256.0 * 100, 0);
+      await _settle(game, procedural);
+      await game.ready();
+      expect(markersIn(game), isNotEmpty);
+      for (final marker in markersIn(game)) {
+        expect(
+          procedural.loadedChunks,
+          contains(ChunkGrid(16).chunkOf(marker.spot.coord)),
+        );
+      }
+
+      game.world.remove(procedural);
+      await game.ready();
+      expect(markersIn(game), isEmpty);
+    });
+
+    testWithFlameGame('spawn can leave spots empty', (game) async {
+      var spawned = 0;
+      var skipped = 0;
+      final procedural = map(
+        generator: spawning(
+          keep: (spot) {
+            final keep = spot.coord.x.isEven;
+            keep ? spawned++ : skipped++;
+            return keep;
+          },
+        ),
+      );
+      await game.world.ensureAdd(procedural);
+      await _settle(game, procedural);
+      await game.ready();
+      expect(skipped, greaterThan(0));
+      expect(markersIn(game), hasLength(spawned));
+    });
+
+    testWithFlameGame('spots are the same when their chunk loads again', (
+      game,
+    ) async {
+      final procedural = map(
+        generator: spawning(),
+        streaming: StreamingOptions(cacheSize: 0),
+      );
+      await game.world.ensureAdd(procedural);
+      await _settle(game, procedural);
+      await game.ready();
+      Map<Vector2, List<int>> seen() => {
+        for (final marker in markersIn(game)) marker.position: marker.numbers,
+      };
+      final first = seen();
+
+      game.camera.viewfinder.position = Vector2(256.0 * 100, 0);
+      await _settle(game, procedural);
+      game.camera.viewfinder.position = Vector2.zero();
+      await _settle(game, procedural);
+      await game.ready();
+
+      expect(seen(), first);
+      // Each spot's numbers are a sequence, not one number repeated.
+      expect(first.values.where((n) => n[0] != n[1]), isNotEmpty);
     });
   });
 

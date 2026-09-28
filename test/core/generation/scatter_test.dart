@@ -51,7 +51,7 @@ ChunkGenerator _plains(List<ScatterRule> rules, {int seed = 1}) =>
       grid: ChunkGrid(16),
     );
 
-List<ScatterSpot> _spotsIn(ChunkGenerator chunks, int from, int to) => [
+List<SpotData> _spotsIn(ChunkGenerator chunks, int from, int to) => [
   for (var cy = from; cy <= to; cy++)
     for (var cx = from; cx <= to; cx++)
       ...chunks.generate(ChunkCoord(cx, cy)).spots,

@@ -52,6 +52,35 @@ class WorldGenerator {
 
   /// Every scatter rule of every biome, each once, in biome order.
   late final List<ScatterRule> scatterRules;
+
+  /// A copy of this generator whose scatter rules are plain [ScatterRule]s.
+  ///
+  /// It generates the same chunks, with the same rule indices, and can be
+  /// sent to another isolate even if the original rules hold callbacks that
+  /// can't, such as a `Scatter`'s `spawn`.
+  WorldGenerator withPlainScatterRules() {
+    final plain = Map<ScatterRule, ScatterRule>.identity();
+    for (final rule in scatterRules) {
+      plain[rule] = ScatterRule(
+        rule.name,
+        density: rule.density,
+        minDistance: rule.minDistance,
+      );
+    }
+    return WorldGenerator(
+      fields: fields,
+      biomes: [
+        for (final biome in biomes)
+          Biome(
+            biome.name,
+            ground: biome.ground,
+            when: biome.when,
+            scatter: [for (final rule in biome.scatter) plain[rule]!],
+          ),
+      ],
+      passes: passes,
+    );
+  }
 }
 
 List<ScatterRule> _collectScatterRules(List<Biome> biomes) {

@@ -1,5 +1,5 @@
 import 'dart:async';
-import 'dart:collection';
+import 'dart:math' show Random;
 import 'dart:ui';
 
 import 'package:flame/components.dart';
@@ -14,12 +14,14 @@ import 'core/generation/biome.dart';
 import 'core/generation/scatter.dart';
 import 'core/generation/world_generator.dart';
 import 'core/noise/noise_field.dart';
+import 'core/random.dart';
 import 'core/tile_palette.dart';
 import 'core/tile_rects.dart';
 import 'core/tile_type.dart';
 import 'render/chunk_painter.dart';
 import 'render/tile_sources.dart';
 import 'render/tileset.dart';
+import 'scatter.dart';
 import 'streaming/chunk_cache.dart';
 import 'streaming/chunk_range.dart';
 import 'streaming/chunk_streamer.dart';
@@ -57,7 +59,11 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   /// or world needs Flame's [HasCollisionDetection] mixin.
   ///
   /// The generator is sent to a worker isolate, so it must not reference
-  /// anything that can't cross isolates, such as images or components.
+  /// anything that can't cross isolates, such as images or components. Only
+  /// [Scatter.spawn] may, because it runs on the main isolate.
+  ///
+  /// If you sort objects by [priority], give the map a lower one, so it's
+  /// drawn below them.
   ProceduralMap({
     required this.seed,
     required this.generator,
@@ -68,6 +74,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     this.onChunkLoaded,
     this.onChunkUnloaded,
     CameraComponent? camera,
+    super.priority,
   }) : grid = ChunkGrid(chunkSize),
        streaming = streaming ??= StreamingOptions(),
        _camera = camera,
@@ -273,7 +280,8 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
   Future<void> _startStreaming() => _starting ??= () async {
     try {
       final executor = await createExecutor(
-        generator,
+        // Scatter.spawn may capture images, which can't cross isolates.
+        generator.withPlainScatterRules(),
         seed: seed,
         grid: grid,
         tiles: tileset.tiles.keys,
@@ -359,7 +367,8 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     final chunk = _LoadedChunk(
       data,
       _palette,
-      generator.biomes,
+      generator,
+      tile,
       _painter.paint(data, _tileIdAt, _time),
       Rect.fromLTWH(
         origin.x * tile.x,
@@ -373,6 +382,7 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
       chunk.solids = _solidTiles(data);
       addAll(chunk.solids);
     }
+    _spawn(chunk);
 
     // In a dual grid, the chunks right of and below this one draw some of
     // its tiles. Until now, they used their own edge tiles in their place.
@@ -396,7 +406,25 @@ class ProceduralMap extends Component with HasGameReference<FlameGame> {
     final chunk = _loaded.remove(data.coord);
     if (chunk == null) return;
     removeAll(chunk.solids);
+    for (final object in chunk.objects) {
+      object.removeFromParent();
+    }
     onChunkUnloaded?.call(chunk);
+  }
+
+  /// Adds the components of [chunk]'s spots to the map's parent.
+  void _spawn(_LoadedChunk chunk) {
+    final parent = this.parent;
+    assert(parent != null, 'chunks only load while the map is mounted');
+    if (parent == null) return;
+    for (final spot in chunk.spots) {
+      final rule = spot.rule;
+      if (rule is! Scatter) continue;
+      final object = rule.spawn(spot);
+      if (object == null) continue;
+      chunk.objects.add(object);
+      parent.add(object);
+    }
   }
 
   /// The hitboxes of the solid tiles in [data], one component per tile type.
@@ -442,20 +470,25 @@ class _LoadedChunk implements Chunk {
   _LoadedChunk(
     this.data,
     this._palette,
-    this._biomes,
+    this._generator,
+    this._tileSize,
     this.painted,
     this.bounds,
   );
 
   final ChunkData data;
   final TilePalette _palette;
-  final List<Biome> _biomes;
+  final WorldGenerator _generator;
+  final Vector2 _tileSize;
 
   /// The chunk's sprites. Painted again when a neighbour loads.
   PaintedChunk painted;
 
   /// The chunk's hitboxes, if the map has collision.
   List<SolidTiles> solids = const [];
+
+  /// The components spawned for the chunk's spots.
+  final objects = <Component>[];
 
   @override
   final Rect bounds;
@@ -473,11 +506,41 @@ class _LoadedChunk implements Chunk {
   TileType tileAt(TileCoord tile) => _palette[data.tileIdAt(tile)];
 
   @override
-  Biome biomeAt(TileCoord tile) => _biomes[data.biomeAt(tile)];
+  Biome biomeAt(TileCoord tile) => _generator.biomes[data.biomeAt(tile)];
 
   @override
-  List<ScatterSpot> get spots => UnmodifiableListView(data.spots);
+  late final List<ScatterSpot> spots = List.unmodifiable([
+    for (final spot in data.spots) _Spot(spot, this),
+  ]);
 
   @override
   String toString() => 'Chunk($coord)';
+}
+
+class _Spot implements ScatterSpot {
+  _Spot(this._data, this._chunk);
+
+  final SpotData _data;
+  final _LoadedChunk _chunk;
+
+  @override
+  ScatterRule get rule => _chunk._generator.scatterRules[_data.ruleIndex];
+
+  @override
+  Vector2 get position {
+    final tile = _chunk._tileSize;
+    return Vector2(_data.x * tile.x, _data.y * tile.y);
+  }
+
+  @override
+  TileCoord get coord => _data.coord;
+
+  @override
+  Biome get biome => _chunk.biomeAt(coord);
+
+  @override
+  late final Random random = WorldRandom(_data.seed);
+
+  @override
+  String toString() => 'ScatterSpot(${rule.name}, $coord)';
 }

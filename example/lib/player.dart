@@ -4,8 +4,10 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flame_worldgen/flame_worldgen.dart';
 
-/// A small walker that can't enter solid tiles.
-class Player extends PositionComponent with CollisionCallbacks {
+import 'objects.dart';
+
+/// A small walker that can't enter solid tiles or walk through obstacles.
+class Player extends PositionComponent with CollisionCallbacks, SortByY {
   Player({super.position})
     : super(size: Vector2.all(10), anchor: Anchor.center);
 
@@ -29,6 +31,7 @@ class Player extends PositionComponent with CollisionCallbacks {
 
   @override
   Future<void> onLoad() async {
+    await super.onLoad();
     add(RectangleHitbox());
   }
 
@@ -39,6 +42,7 @@ class Player extends PositionComponent with CollisionCallbacks {
       final speed = running ? _runSpeed : _walkSpeed;
       position += direction.normalized() * speed * dt;
     }
+    sortByY();
   }
 
   @override
@@ -52,7 +56,7 @@ class Player extends PositionComponent with CollisionCallbacks {
   @override
   void onCollision(Set<Vector2> intersectionPoints, PositionComponent other) {
     super.onCollision(intersectionPoints, other);
-    if (other is! SolidTiles) return;
+    if (other is! SolidTiles && other is! Obstacle) return;
     for (final wall in other.children.whereType<RectangleHitbox>()) {
       _pushOutOf(wall.toAbsoluteRect());
     }

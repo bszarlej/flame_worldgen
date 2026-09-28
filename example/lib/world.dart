@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:flame/extensions.dart';
 import 'package:flame_worldgen/flame_worldgen.dart';
 
+import 'objects.dart';
+
 // What the world is: tile types, noise fields, biomes and passes.
 
 const water = TileType('water', solid: true, tags: {'liquid'});
@@ -29,18 +31,24 @@ final generator = WorldGenerator(
       'mountains',
       ground: stone,
       when: (s) => s[elevation] > 0.35,
-      scatter: const [ScatterRule('rocks', density: 0.05, minDistance: 2)],
+      scatter: [
+        Scatter('rocks', density: 0.05, minDistance: 2, spawn: Rock.new),
+      ],
     ),
     Biome(
       'forest',
       ground: forestFloor,
       when: (s) => s[moisture] > 0.2,
-      scatter: const [ScatterRule('trees', density: 0.15, minDistance: 1.5)],
+      scatter: [
+        Scatter('trees', density: 0.1, minDistance: 1.5, spawn: Tree.new),
+      ],
     ),
-    const Biome(
+    Biome(
       'plains',
       ground: grass,
-      scatter: [ScatterRule('bushes', density: 0.02, minDistance: 3)],
+      scatter: [
+        Scatter('bushes', density: 0.02, minDistance: 3, spawn: Bush.new),
+      ],
     ),
   ],
   passes: const [RoadPass()],

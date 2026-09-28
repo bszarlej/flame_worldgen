@@ -124,6 +124,51 @@ void main() {
     });
   });
 
+  test('withPlainScatterRules keeps everything but the rule classes', () {
+    final trees = _CallbackRule('trees', density: 0.1, minDistance: 1);
+    const rocks = ScatterRule('rocks', density: 0.02);
+    final generator = WorldGenerator(
+      fields: [elevation],
+      biomes: [
+        Biome(
+          'hills',
+          ground: stone,
+          when: (s) => s[elevation] > 0,
+          scatter: [trees, rocks],
+        ),
+        Biome('forest', ground: grass, scatter: [trees]),
+      ],
+    );
+    final plain = generator.withPlainScatterRules();
+
+    expect(plain.scatterRules.map((r) => r.runtimeType), [
+      ScatterRule,
+      ScatterRule,
+    ]);
+    expect(plain.scatterRules.map((r) => (r.name, r.density, r.minDistance)), [
+      ('trees', 0.1, 1.0),
+      ('rocks', 0.02, 0.0),
+    ]);
+    // Both biomes still share one trees rule.
+    expect(plain.biomes[1].scatter.single, same(plain.biomes[0].scatter[0]));
+    expect(
+      plain.biomes.map((b) => b.when),
+      generator.biomes.map((b) => b.when),
+    );
+
+    final original = ChunkGenerator(generator, seed: 3, grid: ChunkGrid(32));
+    final copy = ChunkGenerator(plain, seed: 3, grid: ChunkGrid(32));
+    for (final coord in const [ChunkCoord(0, 0), ChunkCoord(-4, 7)]) {
+      final a = original.generate(coord);
+      final b = copy.generate(coord);
+      expect(b.tiles, a.tiles);
+      expect(
+        b.spots.map((s) => (s.ruleIndex, s.x, s.y)),
+        a.spots.map((s) => (s.ruleIndex, s.x, s.y)),
+      );
+    }
+  });
+
   group('WorldGenerator rejects', () {
     Biome biome(String name, {bool last = false}) =>
         Biome(name, ground: grass, when: last ? null : (s) => true);
@@ -167,4 +212,12 @@ void main() {
       );
     });
   });
+}
+
+/// A rule with a callback, like a `Scatter` with its `spawn`.
+class _CallbackRule extends ScatterRule {
+  _CallbackRule(super.name, {required super.density, super.minDistance})
+    : callback = (() => 0);
+
+  final int Function() callback;
 }

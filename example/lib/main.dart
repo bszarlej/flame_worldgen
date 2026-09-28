@@ -18,6 +18,7 @@ void main() {
 ///
 /// WASD or arrow keys walk, Shift runs, the mouse wheel zooms, F1 toggles
 /// chunk borders, scatter spots and hitboxes, and N generates a new world.
+/// Trees, rocks and bushes are spawned by the biomes' `Scatter` rules.
 class FlameWorldgenExample extends FlameGame
     with HasCollisionDetection, KeyboardEvents, ScrollDetector {
   static const _minZoom = 0.1;
@@ -38,7 +39,7 @@ class FlameWorldgenExample extends FlameGame
     _map = _createMap();
     _player = Player(position: _landNear(_map, Vector2.zero()));
     world.addAll([_map, _player]);
-    camera.follow(_player);
+    camera.viewfinder.position = _player.position;
 
     _help = TextComponent(position: Vector2.all(8));
     _here = TextComponent(position: Vector2(8, 28));
@@ -55,7 +56,9 @@ class FlameWorldgenExample extends FlameGame
     generator: generator,
     tileset: _tileset,
     collision: true,
-  )..debugMode = _debug;
+    // Below every object, which are sorted by their y coordinate.
+    priority: -1_000_000_000,
+  );
 
   /// The centre of the land tile closest to [position] on [map].
   ///
@@ -86,6 +89,11 @@ class FlameWorldgenExample extends FlameGame
   @override
   void update(double dt) {
     super.update(dt);
+    // Collisions are resolved at the end of super.update, after the camera's
+    // own update. Following the player here, rather than with camera.follow,
+    // keeps the camera from seeing the player inside a wall for a frame,
+    // which made the screen shake against walls.
+    camera.viewfinder.position = _player.position;
     final position = _player.position;
     final text =
         '${_map.tileAt(position).name} in the '
@@ -116,11 +124,9 @@ class FlameWorldgenExample extends FlameGame
     if (event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.f1) {
         _debug = !_debug;
-        // Children only take their parent's debug mode when they're added.
-        for (final component in [
-          ..._map.descendants(includeSelf: true),
-          ..._player.descendants(includeSelf: true),
-        ]) {
+        // Children only take their parent's debug mode when they're added,
+        // so this also covers objects spawned later.
+        for (final component in world.descendants(includeSelf: true)) {
           component.debugMode = _debug;
         }
       } else if (event.logicalKey == LogicalKeyboardKey.keyN) {

@@ -275,7 +275,14 @@ Biome(
 
 Spawned components are added to the map's parent (usually your `World`), so
 they can be sorted together with the player. They're removed automatically
-when their chunk unloads.
+when their chunk unloads, and spawned again when it loads again. If you sort
+by `priority`, give the map a lower one, such as
+`ProceduralMap(priority: -1_000_000_000, ...)`, so it's drawn below them.
+
+A spot has its `position` in pixels, its tile `coord`, its `biome`, its
+`rule`, and a `random` that gives the same numbers every time the chunk
+loads. `spawn` can return null to leave a spot empty. It runs on the main
+isolate, so unlike the rest of the generator it may use sprites and images.
 
 ## Querying the world
 

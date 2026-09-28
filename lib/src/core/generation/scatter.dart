@@ -31,10 +31,11 @@ class ScatterRule {
   String toString() => 'ScatterRule($name)';
 }
 
-/// A place where a [ScatterRule] puts an object.
-class ScatterSpot {
+/// A place where a [ScatterRule] puts an object, as generated. Games see it
+/// as a `ScatterSpot`, which adds its position in pixels and its biome.
+class SpotData {
   /// Creates a spot at ([x], [y]) for the rule with [ruleIndex].
-  const ScatterSpot({
+  const SpotData({
     required this.ruleIndex,
     required this.x,
     required this.y,
@@ -66,7 +67,7 @@ class ScatterSpot {
   TileCoord get coord => TileCoord(x.floor(), y.floor());
 
   @override
-  String toString() => 'ScatterSpot($ruleIndex, $x, $y)';
+  String toString() => 'SpotData($ruleIndex, $x, $y)';
 }
 
 /// Throws if [rule] can't be satisfied.
@@ -147,7 +148,7 @@ double _negativeLog1m(double x) {
 ///
 /// The result only depends on the rule, [ruleSeed] and the area, so
 /// neighbouring areas agree along their borders.
-List<ScatterSpot> scatterSpots(
+List<SpotData> scatterSpots(
   ScatterRule rule,
   int ruleIndex,
   int ruleSeed,
@@ -182,7 +183,7 @@ List<ScatterSpot> scatterSpots(
     return otherY != y ? otherY > y : otherX > x;
   }
 
-  final spots = <ScatterSpot>[];
+  final spots = <SpotData>[];
   final firstX = (originX / cellSize).floor();
   final firstY = (originY / cellSize).floor();
   final lastX = ((originX + size) / cellSize).floor();
@@ -221,7 +222,7 @@ List<ScatterSpot> scatterSpots(
       if (!survives) continue;
 
       spots.add(
-        ScatterSpot(
+        SpotData(
           ruleIndex: ruleIndex,
           x: candidate.x,
           y: candidate.y,

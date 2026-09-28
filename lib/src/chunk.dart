@@ -2,8 +2,8 @@ import 'dart:ui';
 
 import 'core/coords.dart';
 import 'core/generation/biome.dart';
-import 'core/generation/scatter.dart';
 import 'core/tile_type.dart';
+import 'scatter.dart';
 
 /// A loaded chunk of a `ProceduralMap`, as seen by `onChunkLoaded` and
 /// `onChunkUnloaded`.

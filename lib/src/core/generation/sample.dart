@@ -30,8 +30,8 @@ class ChunkFields {
   ChunkFields(Iterable<NoiseField> fields, int worldSeed, this.grid) {
     final byName = <String, NoiseField>{};
     for (final field in fields) {
-      if (_slots.containsKey(field)) continue;
       final existing = byName[field.name];
+      if (identical(existing, field)) continue;
       if (existing != null) {
         throw ArgumentError.value(
           field,
@@ -40,7 +40,7 @@ class ChunkFields {
         );
       }
       byName[field.name] = field;
-      _slots[field] = _samplers.length;
+      _slots[field.name] = _samplers.length;
       _samplers.add(field.sampler(worldSeed));
       _values.add(Float64List(grid.area));
     }
@@ -50,7 +50,10 @@ class ChunkFields {
   /// The size of the chunks this evaluates.
   final ChunkGrid grid;
 
-  final _slots = Map<NoiseField, int>.identity();
+  // Fields are found by name, not identity: a top-level `final` field is a
+  // different object on every isolate, so a biome condition running on a
+  // worker holds another instance than the generator that was sent there.
+  final _slots = <String, int>{};
   final _samplers = <NoiseFunction>[];
   final _values = <Float64List>[];
 
@@ -87,7 +90,7 @@ class ChunkFields {
   ///
   /// Throws if [field] isn't one of the generator's fields.
   double valueAt(NoiseField field, int index) {
-    final slot = _slots[field];
+    final slot = _slots[field.name];
     if (slot == null) {
       throw ArgumentError.value(
         field,

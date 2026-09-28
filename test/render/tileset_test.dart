@@ -55,7 +55,7 @@ void main() {
     final set = Tileset(
       image: await _numberedSheet(),
       tileSize: Vector2(3, 2),
-      tiles: const {},
+      tiles: const <TileType, TileSprite>{},
     );
     final atlas = set.atlas;
     expect((atlas.width, atlas.height), (10, 4));

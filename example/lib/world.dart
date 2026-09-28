@@ -65,7 +65,7 @@ class RoadPass extends GenerationPass {
 
 const tileSize = 16;
 
-const _colors = {
+final _colors = {
   water: Color(0xFF2E6FB7),
   sand: Color(0xFFE3D08A),
   grass: Color(0xFF6DAA45),

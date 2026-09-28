@@ -1,8 +1,7 @@
 /// What a tile *is*: its name, whether it blocks movement, and any data the
 /// game attaches to it.
 ///
-/// Define tile types once, usually as top-level constants, and compare them
-/// by identity:
+/// Define tile types once, usually as top-level constants:
 ///
 /// ```dart
 /// const water = TileType('water', solid: true, tags: {'liquid'});
@@ -18,9 +17,11 @@
 /// }
 /// ```
 ///
-/// The [name] identifies the tile type in save files, so keep it stable once
-/// you've shipped. Two different tile types in the same world can't share a
-/// name.
+/// The [name] identifies the tile type, including in save files, so keep it
+/// stable once you've shipped. Tile types are equal when their names are
+/// equal: chunks are generated on another isolate, where a tile type declared
+/// as a top-level `final` is a different object. Two tile types in the same
+/// world with the same name must have the same definition.
 class TileType {
   /// Creates a tile type called [name].
   const TileType(
@@ -44,6 +45,12 @@ class TileType {
 
   /// Whether [tags] contains [tag].
   bool hasTag(String tag) => tags.contains(tag);
+
+  @override
+  bool operator ==(Object other) => other is TileType && other.name == name;
+
+  @override
+  int get hashCode => name.hashCode;
 
   @override
   String toString() => 'TileType($name)';

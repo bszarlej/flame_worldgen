@@ -17,10 +17,20 @@ void main() {
     expect(palette.types, [_water, _sand, _grass]);
   });
 
-  test('ignores repeated instances', () {
+  test('ignores repeated tile types', () {
     final palette = TilePalette([_water, _sand, _water, _sand]);
     expect(palette.length, 2);
     expect(palette.idOf(_sand), 1);
+  });
+
+  test('treats equal definitions as the same tile type', () {
+    // A top-level `final` tile type is a new object on every isolate.
+    // ignore: prefer_const_constructors
+    final copy = TileType('water', solid: true);
+    final palette = TilePalette([_water, copy]);
+    expect(palette.length, 1);
+    expect(palette.idOf(copy), 0);
+    expect(palette.contains(copy), isTrue);
   });
 
   test('finds types by name', () {
@@ -40,11 +50,14 @@ void main() {
     expect(() => palette.idOf(_sand), throwsArgumentError);
   });
 
-  test('rejects different types with the same name', () {
-    expect(
-      () => TilePalette([_grass, const TileType('grass', solid: true)]),
-      throwsArgumentError,
-    );
+  test('rejects different definitions with the same name', () {
+    for (final other in const [
+      TileType('grass', solid: true),
+      TileType('grass', tags: {'soft'}),
+      TileType('grass', properties: {'speed': 1}),
+    ]) {
+      expect(() => TilePalette([_grass, other]), throwsArgumentError);
+    }
   });
 
   test('rejects empty names', () {

@@ -26,16 +26,20 @@ void main() {
     expect(dirt.properties['speed'], 0.8);
   });
 
-  test('compares by identity', () {
+  test('compares by name', () {
     // ignore: prefer_const_constructors
-    expect(TileType('grass'), isNot(TileType('grass')));
-    expect(const TileType('grass'), same(const TileType('grass')));
+    expect(TileType('grass'), TileType('grass'));
+    expect(const TileType('grass'), isNot(const TileType('sand')));
+    expect({
+      const TileType('grass'),
+      const TileType('grass', solid: true),
+    }, hasLength(1));
   });
 
-  test('can be used as a key in const maps', () {
-    const grass = TileType('grass');
-    const sprites = {grass: 1};
-    expect(sprites[grass], 1);
+  test('finds entries in maps by name', () {
+    final sprites = {const TileType('grass'): 1};
+    // ignore: prefer_const_constructors
+    expect(sprites[TileType('grass')], 1);
   });
 
   test('can be extended with typed data', () {

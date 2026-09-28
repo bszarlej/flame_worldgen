@@ -70,7 +70,7 @@ ChunkGenerator goldenChunks({
 /// Renders chunks x -2..2, y -1..0 as one character per tile, with `*` for
 /// trees and bushes and `o` for rocks.
 String renderGolden(ChunkGenerator chunks) {
-  const tileChars = {
+  final tileChars = {
     water: '~',
     sand: '.',
     grass: ',',

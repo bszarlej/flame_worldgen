@@ -9,11 +9,13 @@ import 'tile_type.dart';
 class TilePalette {
   /// Creates a palette with [types], in order.
   ///
-  /// The same instance may appear more than once. Throws if two different
-  /// instances share a name, or if there are more than [maxTypes] types.
+  /// A tile type may appear more than once. Throws if two tile types with
+  /// the same name have different definitions, or if there are more than
+  /// [maxTypes] types.
   TilePalette(Iterable<TileType> types) {
     for (final type in types) {
-      if (_ids.containsKey(type)) continue;
+      final existing = _byName[type.name];
+      if (existing != null && _sameDefinition(existing, type)) continue;
       if (type.name.isEmpty) {
         throw ArgumentError.value(
           type,
@@ -21,7 +23,6 @@ class TilePalette {
           'tile names must not be empty',
         );
       }
-      final existing = _byName[type.name];
       if (existing != null) {
         throw ArgumentError.value(
           type,
@@ -46,7 +47,7 @@ class TilePalette {
   static const maxTypes = 65536;
 
   final _types = <TileType>[];
-  final _ids = Map<TileType, int>.identity();
+  final _ids = <TileType, int>{};
   final _byName = <String, TileType>{};
 
   /// The number of tile types.
@@ -71,3 +72,18 @@ class TilePalette {
   /// Returns the tile type called [name], or null if there is none.
   TileType? byName(String name) => _byName[name];
 }
+
+/// Whether [a] and [b] describe the same tile type. Subclass fields can't be
+/// compared, so this only checks what every tile type has.
+bool _sameDefinition(TileType a, TileType b) =>
+    identical(a, b) ||
+    (a.runtimeType == b.runtimeType &&
+        a.solid == b.solid &&
+        a.tags.length == b.tags.length &&
+        a.tags.containsAll(b.tags) &&
+        a.properties.length == b.properties.length &&
+        a.properties.entries.every(
+          (entry) =>
+              b.properties.containsKey(entry.key) &&
+              b.properties[entry.key] == entry.value,
+        ));
